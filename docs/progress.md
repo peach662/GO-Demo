@@ -20,6 +20,8 @@
 - [x] 使用 Docker Compose 启动 MySQL 8.4。
 - [x] 创建 `migrations/001_create_todos.sql` 并在 MySQL 中创建 `todos` 表。
 - [x] 完成 `internal/database/mysql.go`：连接池创建、`Ping` 验证和失败关闭。
+- [x] 在 `main.go` 启动阶段调用 `database.OpenMySQL()`，确认 Go 服务可以连接 MySQL。
+- [x] 通过 `GET /health` 验证 Gin 服务可访问。
 
 ## 最近验证
 
@@ -40,6 +42,10 @@ go test ./...
 结果：根包、`internal/database` 和 `internal/todo` 包均可编译；其中 `internal/database` 暂无测试文件。
 
 已通过只读 `gofmt -d internal/database/mysql.go` 检查，未发现格式差异。
+
+用户已执行 `go run .`，Gin 成功注册全部路由并监听 `:9090`。由于 MySQL `Ping` 在 Gin 启动前执行，启动过程中未出现 `panic` 也证明 Go 到 MySQL 的连接成功。
+
+用户已在另一终端执行 `Invoke-RestMethod http://localhost:9090/health`，返回 `code=0`、`data=pong`、`message=ok`。
 
 ## 已知依赖说明
 
@@ -78,23 +84,19 @@ Todo Service
 
 ## 唯一下一步
 
-在 `main.go` 中调用 `database.OpenMySQL()`，让服务启动阶段实际验证 Go 到 MySQL 的连接。
+定义 Todo 数据访问层的接口，作为 Service 与 MySQL 实现之间的契约。
 
 要求：
 
-- 导入 `awesomeProject/internal/database`。
-- 在创建 Todo Service 之前调用 `database.OpenMySQL()`。
-- 连接失败时让程序启动失败，不继续启动 HTTP 服务。
-- 用 `defer db.Close()` 在 `main()` 退出时关闭连接池。
+- 新建 `internal/todo/repository.go`。
+- 包名：`todo`。
+- 导入 `context`。
+- 定义导出的接口：`Repository`。
+- 为查询、按 ID 查询、创建、更新状态定义四个方法。
+- 每个方法第一个参数均为 `ctx context.Context`。
+- 数据库故障应通过 `error` 返回；按 ID 查不到 Todo 不是数据库故障，保留 `found bool`。
 
-完成后执行：
-
-```powershell
-go fmt ./...
-go run .
-```
-
-预期日志中没有 `ping mysql` 错误，Gin 正常监听 `:9090`。当前允许暂时使用本地开发 DSN；后续配置管理阶段再迁移到环境变量。
+先只定义接口，不修改现有 `Service`、路由或 SQL。写完把 `repository.go` 内容贴出来，再讲为什么 Repository 要接收 `context.Context`。
 
 ## 跨设备与跨 Agent 续接
 
