@@ -1,0 +1,19 @@
+# IDE
+.idea/
+
+# Local environment and runtime data
+.env
+.env.*
+!.env.example
+data/
+
+# Go build and test output
+bin/
+*.exe
+*.test
+*.out
+coverage.out
+
+# OS files
+.DS_Store
+Thumbs.db
