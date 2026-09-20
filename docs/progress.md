@@ -124,8 +124,8 @@ Git 同步状态：
 
 - [x] 本地 Git 仓库已初始化，当前分支为 `main`。
 - [x] 已创建首个本地提交：`24aabe4 chore: 初始化 Go 学习项目`。
-- [x] 已配置远程：`git@github.com:peach662/GO-Demo.git`。
-- [ ] GitHub SSH 公钥尚未授权，远程推送待完成。
+- [x] 已配置 HTTPS 远程：`https://github.com/peach662/GO-Demo.git`。
+- [x] 已推送 `main` 到 `origin/main`，本地分支已建立跟踪关系。
 
 远程推送完成后，两台电脑只需要克隆同一个私有仓库，就能同步代码和本目录中的学习文档。
 
