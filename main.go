@@ -1,6 +1,7 @@
 package main
 
 import (
+	"awesomeProject/internal/database"
 	"awesomeProject/internal/todo"
 	"github.com/gin-gonic/gin"
 	"strconv"
@@ -11,6 +12,12 @@ import (
 func main() {
 	//TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
 	// to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
+
+	db, err := database.OpenMySQL()
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 
 	service := todo.NewService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Done: false},
