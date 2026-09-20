@@ -22,6 +22,7 @@
 - [x] 完成 `internal/database/mysql.go`：连接池创建、`Ping` 验证和失败关闭。
 - [x] 在 `main.go` 启动阶段调用 `database.OpenMySQL()`，确认 Go 服务可以连接 MySQL。
 - [x] 通过 `GET /health` 验证 Gin 服务可访问。
+- [x] 定义 `todo.Repository` 接口，明确查询、创建和更新的数据访问契约。
 
 ## 最近验证
 
@@ -46,6 +47,8 @@ go test ./...
 用户已执行 `go run .`，Gin 成功注册全部路由并监听 `:9090`。由于 MySQL `Ping` 在 Gin 启动前执行，启动过程中未出现 `panic` 也证明 Go 到 MySQL 的连接成功。
 
 用户已在另一终端执行 `Invoke-RestMethod http://localhost:9090/health`，返回 `code=0`、`data=pong`、`message=ok`。
+
+用户已执行 `go test ./...`，根包、`internal/database` 和 `internal/todo` 包均通过。
 
 ## 已知依赖说明
 
@@ -84,19 +87,18 @@ Todo Service
 
 ## 唯一下一步
 
-定义 Todo 数据访问层的接口，作为 Service 与 MySQL 实现之间的契约。
+创建 MySQL Repository 的结构体和构造函数，为后续 SQL 实现准备连接池依赖。
 
 要求：
 
-- 新建 `internal/todo/repository.go`。
+- 新建 `internal/todo/mysql_repository.go`。
 - 包名：`todo`。
-- 导入 `context`。
-- 定义导出的接口：`Repository`。
-- 为查询、按 ID 查询、创建、更新状态定义四个方法。
-- 每个方法第一个参数均为 `ctx context.Context`。
-- 数据库故障应通过 `error` 返回；按 ID 查不到 Todo 不是数据库故障，保留 `found bool`。
+- 导入 `database/sql`。
+- 定义 `MySQLRepository`，包含未导出字段 `db *sql.DB`。
+- 定义 `NewMySQLRepository(db *sql.DB) *MySQLRepository`，保存传入的连接池。
+- 暂时不实现 `Repository` 的四个方法，也不修改 Service。
 
-先只定义接口，不修改现有 `Service`、路由或 SQL。写完把 `repository.go` 内容贴出来，再讲为什么 Repository 要接收 `context.Context`。
+写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 
 ## 跨设备与跨 Agent 续接
 
