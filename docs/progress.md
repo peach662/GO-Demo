@@ -25,6 +25,7 @@
 - [x] 定义 `todo.Repository` 接口，明确查询、创建和更新的数据访问契约。
 - [x] 创建 `MySQLRepository` 和构造函数，注入 `*sql.DB` 连接池。
 - [x] 实现 `MySQLRepository.List`：使用 `QueryContext` 查询并扫描 Todo 列表。
+- [x] 为 `MySQLRepository.List` 编写真实 MySQL 集成测试，覆盖插入测试数据、查询、断言和清理。
 
 ## 最近验证
 
@@ -52,7 +53,7 @@ go test ./...
 
 用户已执行 `go test ./...`，根包、`internal/database` 和 `internal/todo` 包均通过。
 
-用户已执行 `go fmt ./...` 和 `go test ./...`，`MySQLRepository.List` 已通过编译检查；目前还没有真实数据库集成测试。
+用户已执行 `go fmt ./...` 和 `go test ./...`，`MySQLRepository.List` 的真实 MySQL 集成测试通过；测试包含测试数据清理。
 
 ## 已知依赖说明
 
@@ -91,17 +92,16 @@ Todo Service
 
 ## 唯一下一步
 
-为 `MySQLRepository.List` 编写真实 MySQL 集成测试，验证查询链路。
+实现 MySQL Repository 的 `GetByID`，并为成功、未找到和数据库错误准备测试边界。
 
 要求：
 
-- 在 `internal/todo/mysql_repository_test.go` 中新增测试。
-- 使用 `database.OpenMySQL()` 连接当前 Docker MySQL。
-- 测试开始前插入一条带唯一标题的 Todo 测试数据。
-- 调用 `NewMySQLRepository(db).List(ctx)`。
-- 断言返回列表中包含刚插入的标题。
-- 测试结束后删除这条测试数据，避免污染数据库。
-- 数据库不可用时测试应明确失败，不要静默跳过。
+- 在 `internal/todo/mysql_repository.go` 中实现 `GetByID(ctx context.Context, id int) (Todo, bool, error)`。
+- 使用 `QueryRowContext` 查询一条 Todo。
+- 使用 `Scan` 映射 `id/title/done`。
+- `sql.ErrNoRows` 转换为 `Todo{}, false, nil`。
+- 其他数据库错误原样返回错误。
+- 本次先实现方法，再补集成测试。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 
