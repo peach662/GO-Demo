@@ -28,6 +28,7 @@
 - [x] 为 `MySQLRepository.List` 编写真实 MySQL 集成测试，覆盖插入测试数据、查询、断言和清理。
 - [x] 实现 `MySQLRepository.GetByID`：区分查询成功、无数据和数据库错误。
 - [x] 为 `GetByID` 编写真实 MySQL 测试，覆盖查到数据和查不到数据。
+- [x] 为 `GetByID` 编写数据库错误测试，验证连接关闭时返回 `err`。
 
 ## 最近验证
 
@@ -56,6 +57,14 @@ go test ./...
 用户已执行 `go test ./...`，根包、`internal/database` 和 `internal/todo` 包均通过。
 
 用户已执行 `go fmt ./...` 和 `go test ./...`，`MySQLRepository.List` 的真实 MySQL 集成测试通过；测试包含测试数据清理。
+
+用户已执行无缓存定向测试：
+
+```powershell
+go test -count=1 ./internal/todo -run 'TestMySQLRepository(GetByID|List)'
+```
+
+结果通过，覆盖 List 和 GetByID 的成功、未找到、数据库错误场景。
 
 ## 已知依赖说明
 
@@ -94,13 +103,16 @@ Todo Service
 
 ## 唯一下一步
 
-为 `MySQLRepository.GetByID` 补齐数据库错误边界测试。
+实现 MySQL Repository 的 `Create`，把新 Todo 持久化到数据库。
 
 要求：
 
-- 使用关闭后的数据库连接构造 Repository，验证数据库错误会返回 `err`。
-- 测试不需要插入数据，使用 `db.Close()` 后调用 `GetByID`。
-- 断言 `err != nil`，并确认 `found` 为 `false`。
+- 在 `internal/todo/mysql_repository.go` 中实现 `Create(ctx context.Context, title string) (Todo, error)`。
+- 使用 `ExecContext` 执行 INSERT。
+- 使用 `LastInsertId` 获取自增 ID。
+- 新建的 Todo 默认 `Done=false`。
+- 用 `GetByID` 或查询结果组装并返回完整 Todo。
+- 本次先实现方法，再补 Create 集成测试。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 

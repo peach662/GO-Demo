@@ -130,3 +130,26 @@ func TestMySQLRepositoryGetByID(t *testing.T) {
 	}
 
 }
+
+func TestMySQLRepositoryGetByIDDatabaseError(t *testing.T) {
+	db, err := database.OpenMySQL()
+	if err != nil {
+		t.Fatalf("open mysql: %v", err)
+	}
+
+	_ = db.Close()
+
+	repo := NewMySQLRepository(db)
+
+	_, found, err := repo.GetByID(
+		context.Background(),
+		1,
+	)
+
+	if err == nil {
+		t.Fatal("expected database error")
+	}
+	if found {
+		t.Error("expected found to be false")
+	}
+}
