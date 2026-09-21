@@ -26,6 +26,7 @@
 - [x] 创建 `MySQLRepository` 和构造函数，注入 `*sql.DB` 连接池。
 - [x] 实现 `MySQLRepository.List`：使用 `QueryContext` 查询并扫描 Todo 列表。
 - [x] 为 `MySQLRepository.List` 编写真实 MySQL 集成测试，覆盖插入测试数据、查询、断言和清理。
+- [x] 实现 `MySQLRepository.GetByID`：区分查询成功、无数据和数据库错误。
 
 ## 最近验证
 
@@ -92,16 +93,14 @@ Todo Service
 
 ## 唯一下一步
 
-实现 MySQL Repository 的 `GetByID`，并为成功、未找到和数据库错误准备测试边界。
+为 `MySQLRepository.GetByID` 编写集成测试，覆盖成功、未找到和数据库错误边界。
 
 要求：
 
-- 在 `internal/todo/mysql_repository.go` 中实现 `GetByID(ctx context.Context, id int) (Todo, bool, error)`。
-- 使用 `QueryRowContext` 查询一条 Todo。
-- 使用 `Scan` 映射 `id/title/done`。
-- `sql.ErrNoRows` 转换为 `Todo{}, false, nil`。
-- 其他数据库错误原样返回错误。
-- 本次先实现方法，再补集成测试。
+- 在 `internal/todo/mysql_repository_test.go` 中新增存在数据测试。
+- 新增不存在 ID 测试，断言 `found=false` 且 `err=nil`。
+- 使用关闭后的数据库连接构造 Repository，验证数据库错误会返回 `err`。
+- 每个测试都清理自己插入的数据。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 

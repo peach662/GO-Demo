@@ -3,6 +3,7 @@ package todo
 import (
 	"context"
 	"database/sql"
+	"errors"
 )
 
 type MySQLRepository struct {
@@ -38,4 +39,19 @@ func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
 		return nil, err
 	}
 	return todos, nil
+}
+func (r *MySQLRepository) GetByID(ctx context.Context, id int) (Todo, bool, error) {
+	const query = `SELECT id,title,done FROM todos WHERE id = ?`
+
+	var item Todo
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&item.ID, &item.Title, &item.Done)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Todo{}, false, nil
+		}
+		return Todo{}, false, err
+	}
+
+	return item, true, nil
+
 }
