@@ -29,6 +29,7 @@
 - [x] 实现 `MySQLRepository.GetByID`：区分查询成功、无数据和数据库错误。
 - [x] 为 `GetByID` 编写真实 MySQL 测试，覆盖查到数据和查不到数据。
 - [x] 为 `GetByID` 编写数据库错误测试，验证连接关闭时返回 `err`。
+- [x] 实现 `MySQLRepository.Create`：执行 INSERT 并获取自增 ID。
 
 ## 最近验证
 
@@ -65,6 +66,8 @@ go test -count=1 ./internal/todo -run 'TestMySQLRepository(GetByID|List)'
 ```
 
 结果通过，覆盖 List 和 GetByID 的成功、未找到、数据库错误场景。
+
+用户已执行 `go fmt ./...` 和 `go test ./...`，`MySQLRepository.Create` 已通过编译检查；目前还没有 Create 的真实数据库集成测试。
 
 ## 已知依赖说明
 
@@ -103,16 +106,15 @@ Todo Service
 
 ## 唯一下一步
 
-实现 MySQL Repository 的 `Create`，把新 Todo 持久化到数据库。
+为 `MySQLRepository.Create` 编写真实 MySQL 集成测试，验证插入和自增 ID。
 
 要求：
 
-- 在 `internal/todo/mysql_repository.go` 中实现 `Create(ctx context.Context, title string) (Todo, error)`。
-- 使用 `ExecContext` 执行 INSERT。
-- 使用 `LastInsertId` 获取自增 ID。
-- 新建的 Todo 默认 `Done=false`。
-- 用 `GetByID` 或查询结果组装并返回完整 Todo。
-- 本次先实现方法，再补 Create 集成测试。
+- 在 `internal/todo/mysql_repository_test.go` 中新增 Create 测试。
+- 调用 `repo.Create(ctx, uniqueTitle)`。
+- 断言返回的 ID 大于 0、Title 正确、Done 为 false。
+- 使用 `t.Cleanup` 删除创建的数据。
+- 再用 `repo.GetByID` 验证数据确实已经持久化。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 

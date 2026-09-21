@@ -55,3 +55,19 @@ func (r *MySQLRepository) GetByID(ctx context.Context, id int) (Todo, bool, erro
 	return item, true, nil
 
 }
+
+func (r *MySQLRepository) Create(
+	ctx context.Context,
+	title string,
+) (Todo, error) {
+	const query = `INSERT INTO todos (title, done) VALUES (?, ?)`
+	result, err := r.db.ExecContext(ctx, query, title, false)
+	if err != nil {
+		return Todo{}, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return Todo{}, err
+	}
+	return Todo{ID: int(id), Title: title, Done: false}, nil
+}
