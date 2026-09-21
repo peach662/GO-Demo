@@ -215,3 +215,75 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 		t.Errorf("expected stored done to be false")
 	}
 }
+
+func TestMySQLRepositoryUpdateStatus(t *testing.T) {
+
+	db, err := database.OpenMySQL()
+	if err != nil {
+		t.Fatalf("open mysql: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	ctx := context.Background()
+	title := fmt.Sprintf(
+		"repository-create-test-%d",
+		time.Now().UnixNano(),
+	)
+
+	repo := NewMySQLRepository(db)
+
+	created, err := repo.Create(ctx, title)
+	if err != nil {
+		t.Fatalf("create todo: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_, err := db.ExecContext(
+			context.Background(),
+			`DELETE FROM todos WHERE id = ?`,
+			created.ID,
+		)
+		if err != nil {
+			t.Errorf("delete test todo: %v", err)
+		}
+	})
+
+	updated, found, err := repo.UpdateStatus(ctx, created.ID, true)
+
+	if err != nil {
+		t.Fatalf("update todo status: %v", err)
+	}
+	if !found {
+		t.Fatalf("expected todo to be found")
+	}
+	if !updated.Done {
+		t.Errorf("expected done to be true")
+	}
+	if updated.ID != created.ID {
+		t.Errorf("expected ID %d, got %d", created.ID, updated.ID)
+	}
+	if updated.Title != title {
+		t.Errorf("expected title %q, got %q", title, updated.Title)
+	}
+
+	item, found, err := repo.GetByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("get todo by ID: %v", err)
+	}
+	if !found {
+		t.Fatalf("expected todo to be found")
+	}
+	if !item.Done {
+		t.Errorf("expected stored done to be true")
+	}
+
+	_, found, err = repo.UpdateStatus(ctx, 999999999, true)
+	if err != nil {
+		t.Fatalf("update missing todo: %v", err)
+	}
+	if found {
+		t.Errorf("expected missing todo to be not found")
+	}
+}

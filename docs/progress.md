@@ -32,6 +32,7 @@
 - [x] 实现 `MySQLRepository.Create`：执行 INSERT 并获取自增 ID。
 - [x] 为 `Create` 编写真实 MySQL 集成测试，验证默认状态、持久化和测试数据清理。
 - [x] 实现 `MySQLRepository.UpdateStatus`：更新状态并查询返回最新 Todo。
+- [x] 为 `UpdateStatus` 编写真实 MySQL 集成测试，覆盖更新成功和不存在 ID。
 
 ## 最近验证
 
@@ -75,6 +76,8 @@ go test -count=1 ./internal/todo -run 'TestMySQLRepository(GetByID|List)'
 
 用户已执行 `go fmt ./...` 和 `go test ./...`，`UpdateStatus` 已通过编译检查；目前还没有 UpdateStatus 的真实数据库集成测试。
 
+用户已执行 `go test ./...`，UpdateStatus 集成测试通过；测试验证更新结果、数据库持久化和不存在 ID。
+
 ## 已知依赖说明
 
 Gin `v1.12.0` 依赖 `github.com/goccy/go-yaml v1.19.2`，但当前下载到的该版本缺少 Gin 运行时导入的包，导致 `go mod tidy` 和完整 race 测试失败。
@@ -112,15 +115,15 @@ Todo Service
 
 ## 唯一下一步
 
-为 `MySQLRepository.UpdateStatus` 编写真实 MySQL 集成测试，验证更新和不存在 ID。
+让 Todo Service 依赖 `Repository` 接口，开始移除内存 `[]Todo` 存储。
 
 要求：
 
-- 在 `internal/todo/mysql_repository_test.go` 中新增 UpdateStatus 测试。
-- 创建一条测试 Todo，调用 `UpdateStatus(ctx, id, true)`。
-- 断言返回 `found=true`、`err=nil`、`Done=true`。
-- 再调用不存在的 ID，断言 `found=false` 且 `err=nil`。
-- 使用 `t.Cleanup` 删除测试数据。
+- 修改 `Service`，增加 `repo Repository` 字段。
+- 暂时保留现有方法名，但方法需要接收 `context.Context` 和返回 `error`。
+- 修改 `NewService`，接收 `Repository`，不再接收初始 Todo 列表。
+- 先不要修改 Handler 和 `main.go`，先让 `internal/todo` 包测试通过。
+- 这是一个接口迁移步骤，先完成编译和 Service 单元测试调整，再接入 HTTP。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 
