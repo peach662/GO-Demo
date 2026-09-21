@@ -71,3 +71,26 @@ func (r *MySQLRepository) Create(
 	}
 	return Todo{ID: int(id), Title: title, Done: false}, nil
 }
+func (r *MySQLRepository) UpdateStatus(
+	ctx context.Context,
+	id int,
+	done bool,
+) (Todo, bool, error) {
+	const query = `UPDATE todos SET done = ? WHERE id = ?`
+	result, err := r.db.ExecContext(ctx, query, done, id)
+	if err != nil {
+		return Todo{}, false, err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Todo{}, false, err
+	}
+	if rowsAffected == 0 {
+		return Todo{}, false, nil
+	}
+	item, found, err := r.GetByID(ctx, id)
+	if err != nil {
+		return Todo{}, false, err
+	}
+	return item, found, nil
+}

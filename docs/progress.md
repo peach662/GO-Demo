@@ -31,6 +31,7 @@
 - [x] 为 `GetByID` 编写数据库错误测试，验证连接关闭时返回 `err`。
 - [x] 实现 `MySQLRepository.Create`：执行 INSERT 并获取自增 ID。
 - [x] 为 `Create` 编写真实 MySQL 集成测试，验证默认状态、持久化和测试数据清理。
+- [x] 实现 `MySQLRepository.UpdateStatus`：更新状态并查询返回最新 Todo。
 
 ## 最近验证
 
@@ -72,6 +73,8 @@ go test -count=1 ./internal/todo -run 'TestMySQLRepository(GetByID|List)'
 
 用户已执行 `go test ./...`，Create 集成测试通过；测试验证返回 ID、标题、默认 `Done=false`，并通过 `GetByID` 验证持久化。
 
+用户已执行 `go fmt ./...` 和 `go test ./...`，`UpdateStatus` 已通过编译检查；目前还没有 UpdateStatus 的真实数据库集成测试。
+
 ## 已知依赖说明
 
 Gin `v1.12.0` 依赖 `github.com/goccy/go-yaml v1.19.2`，但当前下载到的该版本缺少 Gin 运行时导入的包，导致 `go mod tidy` 和完整 race 测试失败。
@@ -109,16 +112,15 @@ Todo Service
 
 ## 唯一下一步
 
-实现 MySQL Repository 的 `UpdateStatus`，更新 Todo 完成状态。
+为 `MySQLRepository.UpdateStatus` 编写真实 MySQL 集成测试，验证更新和不存在 ID。
 
 要求：
 
-- 在 `internal/todo/mysql_repository.go` 中实现 `UpdateStatus(ctx context.Context, id int, done bool) (Todo, bool, error)`。
-- 使用 `ExecContext` 执行 `UPDATE todos SET done = ? WHERE id = ?`。
-- 通过 `RowsAffected()` 判断 ID 是否存在。
-- 不存在时返回 `Todo{}, false, nil`。
-- 更新成功后用 `GetByID` 查询并返回最新 Todo。
-- 本次先实现方法，再补 UpdateStatus 集成测试。
+- 在 `internal/todo/mysql_repository_test.go` 中新增 UpdateStatus 测试。
+- 创建一条测试 Todo，调用 `UpdateStatus(ctx, id, true)`。
+- 断言返回 `found=true`、`err=nil`、`Done=true`。
+- 再调用不存在的 ID，断言 `found=false` 且 `err=nil`。
+- 使用 `t.Cleanup` 删除测试数据。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 
