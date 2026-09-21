@@ -23,6 +23,7 @@
 - [x] 在 `main.go` 启动阶段调用 `database.OpenMySQL()`，确认 Go 服务可以连接 MySQL。
 - [x] 通过 `GET /health` 验证 Gin 服务可访问。
 - [x] 定义 `todo.Repository` 接口，明确查询、创建和更新的数据访问契约。
+- [x] 创建 `MySQLRepository` 和构造函数，注入 `*sql.DB` 连接池。
 
 ## 最近验证
 
@@ -87,16 +88,16 @@ Todo Service
 
 ## 唯一下一步
 
-创建 MySQL Repository 的结构体和构造函数，为后续 SQL 实现准备连接池依赖。
+实现 MySQL Repository 的第一个只读方法：查询全部 Todo。
 
 要求：
 
-- 新建 `internal/todo/mysql_repository.go`。
-- 包名：`todo`。
-- 导入 `database/sql`。
-- 定义 `MySQLRepository`，包含未导出字段 `db *sql.DB`。
-- 定义 `NewMySQLRepository(db *sql.DB) *MySQLRepository`，保存传入的连接池。
-- 暂时不实现 `Repository` 的四个方法，也不修改 Service。
+- 在 `internal/todo/mysql_repository.go` 中实现 `List(ctx context.Context) ([]Todo, error)`。
+- 使用 `QueryContext` 执行 `SELECT id, title, done FROM todos ORDER BY id`。
+- 使用 `defer rows.Close()` 释放结果集。
+- 循环 `rows.Next()`，使用 `rows.Scan()` 填充 Todo。
+- 循环结束后检查 `rows.Err()`。
+- 本次只实现 List，不实现创建、按 ID 查询和更新状态。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 
