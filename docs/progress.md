@@ -24,6 +24,7 @@
 - [x] 通过 `GET /health` 验证 Gin 服务可访问。
 - [x] 定义 `todo.Repository` 接口，明确查询、创建和更新的数据访问契约。
 - [x] 创建 `MySQLRepository` 和构造函数，注入 `*sql.DB` 连接池。
+- [x] 实现 `MySQLRepository.List`：使用 `QueryContext` 查询并扫描 Todo 列表。
 
 ## 最近验证
 
@@ -50,6 +51,8 @@ go test ./...
 用户已在另一终端执行 `Invoke-RestMethod http://localhost:9090/health`，返回 `code=0`、`data=pong`、`message=ok`。
 
 用户已执行 `go test ./...`，根包、`internal/database` 和 `internal/todo` 包均通过。
+
+用户已执行 `go fmt ./...` 和 `go test ./...`，`MySQLRepository.List` 已通过编译检查；目前还没有真实数据库集成测试。
 
 ## 已知依赖说明
 
@@ -88,16 +91,17 @@ Todo Service
 
 ## 唯一下一步
 
-实现 MySQL Repository 的第一个只读方法：查询全部 Todo。
+为 `MySQLRepository.List` 编写真实 MySQL 集成测试，验证查询链路。
 
 要求：
 
-- 在 `internal/todo/mysql_repository.go` 中实现 `List(ctx context.Context) ([]Todo, error)`。
-- 使用 `QueryContext` 执行 `SELECT id, title, done FROM todos ORDER BY id`。
-- 使用 `defer rows.Close()` 释放结果集。
-- 循环 `rows.Next()`，使用 `rows.Scan()` 填充 Todo。
-- 循环结束后检查 `rows.Err()`。
-- 本次只实现 List，不实现创建、按 ID 查询和更新状态。
+- 在 `internal/todo/mysql_repository_test.go` 中新增测试。
+- 使用 `database.OpenMySQL()` 连接当前 Docker MySQL。
+- 测试开始前插入一条带唯一标题的 Todo 测试数据。
+- 调用 `NewMySQLRepository(db).List(ctx)`。
+- 断言返回列表中包含刚插入的标题。
+- 测试结束后删除这条测试数据，避免污染数据库。
+- 数据库不可用时测试应明确失败，不要静默跳过。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 
