@@ -1,63 +1,34 @@
 package todo
 
-import "sync"
+import "context"
 
 type Service struct {
-	mu    sync.RWMutex
-	todos []Todo
+	repo Repository
 }
 
-func NewService(initialTodos []Todo) *Service {
+func NewService(repo Repository) *Service {
 	return &Service{
-		todos: initialTodos,
+		repo: repo,
 	}
 }
 
-func (s *Service) List() []Todo {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (s *Service) List(ctx context.Context) ([]Todo, error) {
 
-	result := make([]Todo, len(s.todos))
-	copy(result, s.todos)
-	return result
+	return s.repo.List(ctx)
 
 }
 
-func (s *Service) GetByID(id int) (Todo, bool) {
+func (s *Service) GetByID(ctx context.Context, id int) (Todo, bool, error) {
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	for _, item := range s.todos {
-		if item.ID == id {
-			return item, true
-		}
-	}
-	return Todo{}, false
+	return s.repo.GetByID(ctx, id)
 }
 
-func (s *Service) Create(title string) Todo {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Service) Create(ctx context.Context, title string) (Todo, error) {
 
-	newTodo := Todo{
-		ID:    len(s.todos) + 1,
-		Title: title,
-		Done:  false,
-	}
-	s.todos = append(s.todos, newTodo)
-	return newTodo
+	return s.repo.Create(ctx, title)
 }
 
-func (s *Service) UpdateStatus(id int, done bool) (Todo, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Service) UpdateStatus(ctx context.Context, id int, done bool) (Todo, bool, error) {
 
-	for i, item := range s.todos {
-		if item.ID == id {
-			s.todos[i].Done = done
-			return s.todos[i], true
-		}
-	}
-	return Todo{}, false
+	return s.repo.UpdateStatus(ctx, id, done)
 }
