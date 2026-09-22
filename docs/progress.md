@@ -37,6 +37,7 @@
 - [x] 将 HTTP 测试迁移为使用测试 `fakeRepository`，适配新的 Service context/error 签名。
 - [x] 通过真实 HTTP 验证 MySQL-backed Todo：健康检查、列表、创建和创建后查询。
 - [x] 通过真实 HTTP 验证 PATCH 状态更新，并用 GET 确认 `done=true` 已持久化。
+- [x] 重启 Go 服务后再次查询 ID=39，数据仍存在，确认 Todo 已由 MySQL 持久化。
 
 ## 最近验证
 
@@ -101,6 +102,7 @@ POST /todos -> 创建 MySQL Todo，返回 id=39
 GET /todos -> 能查到 id=39 的 MySQL Todo
 PATCH /todos/39 -> done=true
 GET /todos/39 -> done=true
+重启服务后 GET /todos/39 -> 仍为 done=true
 ```
 
 ## 已知依赖说明
@@ -144,7 +146,6 @@ Todo Service
 
 要求：
 
-- 停止并重新启动 Go 服务，再 GET 确认 Todo 仍存在，证明数据来自 MySQL 而不是内存。
 - 修改 `r.Run`，不再忽略启动错误。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
