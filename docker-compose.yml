@@ -6,10 +6,10 @@ services:
     ports:
       - "13306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: awesome_project
-      MYSQL_USER: app
-      MYSQL_PASSWORD: app123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       TZ: Asia/Shanghai
     command:
       - --character-set-server=utf8mb4
