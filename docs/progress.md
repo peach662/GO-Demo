@@ -35,6 +35,7 @@
 - [x] 为 `UpdateStatus` 编写真实 MySQL 集成测试，覆盖更新成功和不存在 ID。
 - [x] 将 `Service` 迁移为依赖 `Repository` 接口，Service 测试使用 `fakeRepository`。
 - [x] 将 HTTP 测试迁移为使用测试 `fakeRepository`，适配新的 Service context/error 签名。
+- [x] 通过真实 HTTP 验证 MySQL-backed Todo：健康检查、列表、创建和创建后查询。
 
 ## 最近验证
 
@@ -90,6 +91,15 @@ go test -count=1 ./...
 
 根包、`internal/database` 和 `internal/todo` 均通过。
 
+用户已手动验证：
+
+```text
+GET /health -> code=0, data=pong
+GET /todos -> 初始空列表
+POST /todos -> 创建 MySQL Todo，返回 id=39
+GET /todos -> 能查到 id=39 的 MySQL Todo
+```
+
 ## 已知依赖说明
 
 Gin `v1.12.0` 依赖 `github.com/goccy/go-yaml v1.19.2`，但当前下载到的该版本缺少 Gin 运行时导入的包，导致 `go mod tidy` 和完整 race 测试失败。
@@ -127,14 +137,13 @@ Todo Service
 
 ## 唯一下一步
 
-验证 MySQL-backed 应用的完整 HTTP 流程，并清理启动错误处理。
+完成 MySQL-backed HTTP 流程验证，并修复启动错误处理。
 
 要求：
 
-- 保持 MySQL 容器运行，启动 `go run .`。
-- 使用 PowerShell 验证 `/health`、列表、查询、创建和状态更新接口。
-- 确认创建的数据可以通过 GET 查询到，重启服务后仍存在。
-- 检查 `r.Run` 的启动错误，不再忽略返回值。
+- 使用 PATCH 验证状态更新并再次 GET 确认 `done=true`。
+- 停止并重新启动 Go 服务，再 GET 确认 Todo 仍存在，证明数据来自 MySQL 而不是内存。
+- 修改 `r.Run`，不再忽略启动错误。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 
