@@ -2,6 +2,7 @@ package main
 
 import (
 	"awesomeProject/internal/todo"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,9 +10,51 @@ import (
 	"testing"
 )
 
+type fakeRepository struct {
+	todos []todo.Todo
+}
+
+func newTestService(initialTodos []todo.Todo) *todo.Service {
+	return todo.NewService(&fakeRepository{
+		todos: initialTodos,
+	})
+}
+
+func (r *fakeRepository) List(ctx context.Context) ([]todo.Todo, error) {
+	result := make([]todo.Todo, len(r.todos))
+	copy(result, r.todos)
+	return result, nil
+}
+
+func (r *fakeRepository) GetByID(ctx context.Context, id int) (todo.Todo, bool, error) {
+	for _, t := range r.todos {
+		if t.ID == id {
+			return t, true, nil
+		}
+	}
+	return todo.Todo{}, false, nil
+}
+
+func (r *fakeRepository) Create(ctx context.Context, title string) (todo.Todo, error) {
+	id := len(r.todos) + 1
+	t := todo.Todo{ID: id, Title: title, Done: false}
+	r.todos = append(r.todos, t)
+	return t, nil
+}
+
+func (r *fakeRepository) UpdateStatus(ctx context.Context, id int, done bool) (todo.Todo, bool, error) {
+	for i := range r.todos {
+		if r.todos[i].ID == id {
+			r.todos[i].Done = done
+			return r.todos[i], true, nil
+		}
+	}
+
+	return todo.Todo{}, false, nil
+}
 func TestHealthRoute(t *testing.T) {
 
-	service := todo.NewService([]todo.Todo{
+	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Done: false},
 		{ID: 2, Title: "Build a web app", Done: false},
 		{ID: 3, Title: "Deploy to production", Done: false},
@@ -33,7 +76,7 @@ func TestHealthRoute(t *testing.T) {
 }
 
 func TestGetTodosRoute(t *testing.T) {
-	service := todo.NewService([]todo.Todo{
+	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Done: false},
 		{ID: 2, Title: "Build a web app", Done: false},
 	})
@@ -72,7 +115,7 @@ func TestGetTodosRoute(t *testing.T) {
 }
 
 func TestGetTodoNotFoundRoute(t *testing.T) {
-	service := todo.NewService([]todo.Todo{
+	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Done: false},
 		{ID: 2, Title: "Build a web app", Done: false},
 	})
@@ -102,7 +145,7 @@ func TestGetTodoNotFoundRoute(t *testing.T) {
 }
 
 func TestCreateTodoRoute(t *testing.T) {
-	service := todo.NewService([]todo.Todo{
+	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Done: false},
 		{ID: 2, Title: "Build a web app", Done: false},
 	})
@@ -140,13 +183,17 @@ func TestCreateTodoRoute(t *testing.T) {
 	if response.Data.Done != false {
 		t.Errorf("Expected new todo Done false, got %v", response.Data.Done)
 	}
-	if got := len(service.List()); got != 3 {
-		t.Errorf("expected 3 todos in service, got %d", got)
+	items, err := service.List(context.Background())
+	if err != nil {
+		t.Fatalf("list todos: %v", err)
+	}
+	if len(items) != 3 {
+		t.Errorf("expected 3 todos, got %d", len(items))
 	}
 }
 
 func TestCreateTodoValidationError(t *testing.T) {
-	service := todo.NewService([]todo.Todo{
+	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Done: false},
 		{ID: 2, Title: "Build a web app", Done: false},
 	})
@@ -176,14 +223,18 @@ func TestCreateTodoValidationError(t *testing.T) {
 		t.Errorf("expected message %q, got %q", "请求参数错误", response.Message)
 	}
 
-	if got := len(service.List()); got != 2 {
-		t.Errorf("expected 2 todos in service, got %d", got)
+	items, err := service.List(context.Background())
+	if err != nil {
+		t.Fatalf("list todos: %v", err)
+	}
+	if len(items) != 2 {
+		t.Errorf("expected 2 todos, got %d", len(items))
 	}
 }
 
 func TestUpdateTodoStatusRoute(t *testing.T) {
 
-	service := todo.NewService([]todo.Todo{
+	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Done: false},
 		{ID: 2, Title: "Build a web app", Done: false},
 	})
@@ -218,7 +269,10 @@ func TestUpdateTodoStatusRoute(t *testing.T) {
 		t.Errorf("expected code 0, got %d", response.Code)
 	}
 
-	stored, found := service.GetByID(1)
+	stored, found, err := service.GetByID(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("get todo: %v", err)
+	}
 	if !found {
 		t.Fatalf("expected to find todo with ID 1")
 	}
@@ -228,7 +282,7 @@ func TestUpdateTodoStatusRoute(t *testing.T) {
 }
 
 func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
-	service := todo.NewService([]todo.Todo{
+	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Done: false},
 		{ID: 2, Title: "Build a web app", Done: false},
 	})
@@ -256,7 +310,11 @@ func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
 	if response.Message != "todo 不存在" {
 		t.Errorf("expected message %q, got %q", "todo 不存在", response.Message)
 	}
-	if got := len(service.List()); got != 2 {
-		t.Errorf("expected 2 todos in service, got %d", got)
+	items, err := service.List(context.Background())
+	if err != nil {
+		t.Fatalf("list todos: %v", err)
+	}
+	if len(items) != 2 {
+		t.Errorf("expected 2 todos in service, got %d", len(items))
 	}
 }
