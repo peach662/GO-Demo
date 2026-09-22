@@ -1,21 +1,44 @@
 package todo
 
 import (
+	"awesomeProject/internal/config"
 	"awesomeProject/internal/database"
 	"context"
+	"database/sql"
 	"fmt"
+	"os"
 	"testing"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
-func TestMySQLRepositoryList(t *testing.T) {
-	db, err := database.OpenMySQL()
+func openTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+
+	if err := godotenv.Load("../../.env"); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("load .env: %v", err)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	db, err := database.OpenMySQL(cfg.MySQLDSN)
 	if err != nil {
 		t.Fatalf("open mysql: %v", err)
 	}
+
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
+
+	return db
+}
+
+func TestMySQLRepositoryList(t *testing.T) {
+	db := openTestDB(t)
 
 	ctx := context.Background()
 	title := fmt.Sprintf("repository-list-test-%d", time.Now().UnixNano())
@@ -67,13 +90,8 @@ func TestMySQLRepositoryList(t *testing.T) {
 }
 
 func TestMySQLRepositoryGetByID(t *testing.T) {
-	db, err := database.OpenMySQL()
-	if err != nil {
-		t.Fatalf("open mysql: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
+	db := openTestDB(t)
+	var err error
 
 	ctx := context.Background()
 	title := fmt.Sprintf("repository-list-test-%d", time.Now().UnixNano())
@@ -132,11 +150,7 @@ func TestMySQLRepositoryGetByID(t *testing.T) {
 }
 
 func TestMySQLRepositoryGetByIDDatabaseError(t *testing.T) {
-	db, err := database.OpenMySQL()
-	if err != nil {
-		t.Fatalf("open mysql: %v", err)
-	}
-
+	db := openTestDB(t)
 	_ = db.Close()
 
 	repo := NewMySQLRepository(db)
@@ -155,14 +169,7 @@ func TestMySQLRepositoryGetByIDDatabaseError(t *testing.T) {
 }
 
 func TestMySQLRepositoryCreate(t *testing.T) {
-
-	db, err := database.OpenMySQL()
-	if err != nil {
-		t.Fatalf("open mysql: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
+	db := openTestDB(t)
 
 	ctx := context.Background()
 	title := fmt.Sprintf(
@@ -217,14 +224,7 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 }
 
 func TestMySQLRepositoryUpdateStatus(t *testing.T) {
-
-	db, err := database.OpenMySQL()
-	if err != nil {
-		t.Fatalf("open mysql: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
+	db := openTestDB(t)
 
 	ctx := context.Background()
 	title := fmt.Sprintf(

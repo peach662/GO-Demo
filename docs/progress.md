@@ -39,6 +39,9 @@
 - [x] 通过真实 HTTP 验证 PATCH 状态更新，并用 GET 确认 `done=true` 已持久化。
 - [x] 重启 Go 服务后再次查询 ID=39，数据仍存在，确认 Todo 已由 MySQL 持久化。
 - [x] 使用 `if err := r.Run(":9090"); err != nil` 显式处理 Gin 启动错误。
+- [x] 增加 `config.Load`，从 `.env` 或系统环境变量读取 `MYSQL_DSN`。
+- [x] 修改 `database.OpenMySQL(dsn)`，移除数据库 DSN 硬编码。
+- [x] 统一 MySQL 集成测试配置加载，并处理测试工作目录与项目根目录不同的问题。
 
 ## 最近验证
 
@@ -94,6 +97,14 @@ go test -count=1 ./...
 
 根包、`internal/database` 和 `internal/todo` 均通过。
 
+配置迁移后已执行无缓存完整测试：
+
+```powershell
+go test -count=1 ./...
+```
+
+根包、`internal/config`、`internal/database` 和 `internal/todo` 均通过；本地 `.env` 未提交。
+
 用户已手动验证：
 
 ```text
@@ -145,13 +156,13 @@ MySQL
 
 ## 唯一下一步
 
-下一阶段：补充配置管理，移除代码中的 MySQL DSN 和明文凭据。
+下一阶段：完善数据库迁移和 Repository/Service 错误边界，随后加入状态机和操作审计。
 
 要求：
 
-- 新增环境变量或配置结构承载 MySQL DSN。
-- 不再把账号密码硬编码在 Go 源码中。
-- 保持本地 Docker Compose 的连接方式不变。
+- 为 `todos` 增加更新后的状态流转约束。
+- 设计非法状态变化和操作审计的测试。
+- 保持 `.env` 只在本地使用，继续维护 `.env.example`。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 

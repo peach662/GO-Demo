@@ -1,6 +1,7 @@
 package main
 
 import (
+	"awesomeProject/internal/config"
 	"awesomeProject/internal/database"
 	"awesomeProject/internal/todo"
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,12 @@ func main() {
 	//TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
 	// to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
 
-	db, err := database.OpenMySQL()
+	cfg, err := config.Load()
+	if err != nil {
+		panic(err)
+	}
+
+	db, err := database.OpenMySQL(cfg.MySQLDSN)
 	if err != nil {
 		panic(err)
 	}
