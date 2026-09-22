@@ -19,11 +19,8 @@ func main() {
 	}
 	defer db.Close()
 
-	service := todo.NewService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Done: false},
-		{ID: 2, Title: "Build a web app", Done: false},
-	})
-
+	repo := todo.NewMySQLRepository(db)
+	service := todo.NewService(repo)
 	r := newRouter(service)
 
 	r.Run(":9090")
@@ -33,10 +30,21 @@ func newRouter(service *todo.Service) *gin.Engine {
 	r := gin.Default()
 	// ... (路由定义)
 	r.GET("/todos", func(c *gin.Context) {
+		items, err := service.List(c.Request.Context())
+		if err != nil {
+			c.JSON(500, gin.H{
+				"code":    500,
+				"message": "服务内部错误",
+				"data":    nil,
+			})
+			return
+		}
+
 		c.JSON(200, gin.H{
 			"code":    0,
 			"message": "ok",
-			"data":    service.List()})
+			"data":    items,
+		})
 	})
 	r.GET("/todos/:id", func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
@@ -48,7 +56,15 @@ func newRouter(service *todo.Service) *gin.Engine {
 			})
 			return
 		}
-		item, found := service.GetByID(id)
+		item, found, err := service.GetByID(c.Request.Context(), id)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"code":    500,
+				"message": "服务内部错误",
+				"data":    nil,
+			})
+			return
+		}
 		if !found {
 			c.JSON(404, gin.H{
 				"code":    404,
@@ -74,7 +90,15 @@ func newRouter(service *todo.Service) *gin.Engine {
 			return
 		}
 
-		newTodo := service.Create(req.Title)
+		newTodo, err := service.Create(c.Request.Context(), req.Title)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"code":    500,
+				"message": "服务内部错误",
+				"data":    nil,
+			})
+			return
+		}
 		c.JSON(200, gin.H{
 			"code":    0,
 			"message": "ok",
@@ -102,7 +126,15 @@ func newRouter(service *todo.Service) *gin.Engine {
 			})
 			return
 		}
-		updatedTodo, found := service.UpdateStatus(id, *req.Done)
+		updatedTodo, found, err := service.UpdateStatus(c.Request.Context(), id, *req.Done)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"code":    500,
+				"message": "服务内部错误",
+				"data":    nil,
+			})
+			return
+		}
 		if !found {
 			c.JSON(404, gin.H{
 				"code":    404,
