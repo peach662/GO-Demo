@@ -1,0 +1,28 @@
+状态: 
+PENDING     待处理
+PROCESSING  处理中
+COMPLETED   已完成
+FAILED      失败
+
+
+合法流转:
+PENDING -> PENDING
+PENDING -> PROCESSING
+PROCESSING -> PROCESSING
+PROCESSING -> COMPLETED
+PROCESSING -> FAILED
+FAILED -> PROCESSING
+COMPLETED -> COMPLETED
+
+
+非法流转:
+COMPLETED -> PROCESSING
+COMPLETED -> PENDING
+PENDING -> COMPLETED
+
+
+业务规则:
+已完成任务不能重新处理
+失败任务可以重试
+只有处理中任务可以标记完成
+同一状态重复提交视为幂等成功，不产生额外状态变化
