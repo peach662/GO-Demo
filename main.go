@@ -23,7 +23,9 @@ func main() {
 	service := todo.NewService(repo)
 	r := newRouter(service)
 
-	r.Run(":9090")
+	if err := r.Run(":9090"); err != nil {
+		panic(err)
+	}
 }
 
 func newRouter(service *todo.Service) *gin.Engine {

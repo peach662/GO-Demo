@@ -38,6 +38,7 @@
 - [x] 通过真实 HTTP 验证 MySQL-backed Todo：健康检查、列表、创建和创建后查询。
 - [x] 通过真实 HTTP 验证 PATCH 状态更新，并用 GET 确认 `done=true` 已持久化。
 - [x] 重启 Go 服务后再次查询 ID=39，数据仍存在，确认 Todo 已由 MySQL 持久化。
+- [x] 使用 `if err := r.Run(":9090"); err != nil` 显式处理 Gin 启动错误。
 
 ## 最近验证
 
@@ -137,16 +138,20 @@ Gin Handler
     |
 Todo Service
     |
-内存 []Todo + sync.RWMutex
+Todo Repository
+    |
+MySQL
 ```
 
 ## 唯一下一步
 
-完成 MySQL-backed HTTP 流程验证，并修复启动错误处理。
+下一阶段：补充配置管理，移除代码中的 MySQL DSN 和明文凭据。
 
 要求：
 
-- 修改 `r.Run`，不再忽略启动错误。
+- 新增环境变量或配置结构承载 MySQL DSN。
+- 不再把账号密码硬编码在 Go 源码中。
+- 保持本地 Docker Compose 的连接方式不变。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
 
