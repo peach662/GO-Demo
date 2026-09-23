@@ -37,15 +37,15 @@ func (r *fakeRepository) GetByID(ctx context.Context, id int) (todo.Todo, bool, 
 
 func (r *fakeRepository) Create(ctx context.Context, title string) (todo.Todo, error) {
 	id := len(r.todos) + 1
-	t := todo.Todo{ID: id, Title: title, Done: false}
+	t := todo.Todo{ID: id, Title: title, Status: todo.StatusPending}
 	r.todos = append(r.todos, t)
 	return t, nil
 }
 
-func (r *fakeRepository) UpdateStatus(ctx context.Context, id int, done bool) (todo.Todo, bool, error) {
+func (r *fakeRepository) UpdateStatus(ctx context.Context, id int, status todo.Status) (todo.Todo, bool, error) {
 	for i := range r.todos {
 		if r.todos[i].ID == id {
-			r.todos[i].Done = done
+			r.todos[i].Status = status
 			return r.todos[i], true, nil
 		}
 	}
@@ -55,9 +55,9 @@ func (r *fakeRepository) UpdateStatus(ctx context.Context, id int, done bool) (t
 func TestHealthRoute(t *testing.T) {
 
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Done: false},
-		{ID: 2, Title: "Build a web app", Done: false},
-		{ID: 3, Title: "Deploy to production", Done: false},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
+		{ID: 3, Title: "Deploy to production", Status: todo.StatusPending},
 	})
 
 	router := newRouter(service)
@@ -77,8 +77,8 @@ func TestHealthRoute(t *testing.T) {
 
 func TestGetTodosRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Done: false},
-		{ID: 2, Title: "Build a web app", Done: false},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
 
 	router := newRouter(service)
@@ -116,8 +116,8 @@ func TestGetTodosRoute(t *testing.T) {
 
 func TestGetTodoNotFoundRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Done: false},
-		{ID: 2, Title: "Build a web app", Done: false},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
 	router := newRouter(service)
 	req := httptest.NewRequest(http.MethodGet, "/todos/999", nil)
@@ -146,8 +146,8 @@ func TestGetTodoNotFoundRoute(t *testing.T) {
 
 func TestCreateTodoRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Done: false},
-		{ID: 2, Title: "Build a web app", Done: false},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
 	router := newRouter(service)
 	reqBody := `{"title":"Write HTTP tests"}`
@@ -180,8 +180,8 @@ func TestCreateTodoRoute(t *testing.T) {
 	if response.Code != 0 {
 		t.Errorf("expected code 0, got %d", response.Code)
 	}
-	if response.Data.Done != false {
-		t.Errorf("Expected new todo Done false, got %v", response.Data.Done)
+	if response.Data.Status != todo.StatusPending {
+		t.Errorf("Expected new todo status %q, got %q", todo.StatusPending, response.Data.Status)
 	}
 	items, err := service.List(context.Background())
 	if err != nil {
@@ -194,8 +194,8 @@ func TestCreateTodoRoute(t *testing.T) {
 
 func TestCreateTodoValidationError(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Done: false},
-		{ID: 2, Title: "Build a web app", Done: false},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
 	router := newRouter(service)
 	reqBody := `{}`
@@ -235,11 +235,11 @@ func TestCreateTodoValidationError(t *testing.T) {
 func TestUpdateTodoStatusRoute(t *testing.T) {
 
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Done: false},
-		{ID: 2, Title: "Build a web app", Done: false},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
 	router := newRouter(service)
-	reqBody := `{"done":true}`
+	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/1", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -262,8 +262,8 @@ func TestUpdateTodoStatusRoute(t *testing.T) {
 	if response.Data.ID != 1 {
 		t.Errorf("Expected updated todo ID 1, got %d", response.Data.ID)
 	}
-	if response.Data.Done != true {
-		t.Errorf("Expected updated todo Done true, got %v", response.Data.Done)
+	if response.Data.Status != todo.StatusProcessing {
+		t.Errorf("Expected updated todo status %q, got %q", todo.StatusProcessing, response.Data.Status)
 	}
 	if response.Code != 0 {
 		t.Errorf("expected code 0, got %d", response.Code)
@@ -276,18 +276,18 @@ func TestUpdateTodoStatusRoute(t *testing.T) {
 	if !found {
 		t.Fatalf("expected to find todo with ID 1")
 	}
-	if !stored.Done {
-		t.Errorf("expected stored todo Done to be true")
+	if stored.Status != todo.StatusProcessing {
+		t.Errorf("expected stored todo status %q", todo.StatusProcessing)
 	}
 }
 
 func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Done: false},
-		{ID: 2, Title: "Build a web app", Done: false},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
 	router := newRouter(service)
-	reqBody := `{"done":true}`
+	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/999", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -316,5 +316,35 @@ func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
 	}
 	if len(items) != 2 {
 		t.Errorf("expected 2 todos in service, got %d", len(items))
+	}
+}
+
+func TestUpdateTodoInvalidTransitionRoute(t *testing.T) {
+	service := newTestService([]todo.Todo{
+		{ID: 1, Title: "Completed todo", Status: todo.StatusCompleted},
+	})
+	router := newRouter(service)
+	reqBody := `{"status":"PROCESSING"}`
+	req := httptest.NewRequest(http.MethodPatch, "/todos/1", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if status := recorder.Code; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+
+	var response struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if response.Code != 400 {
+		t.Errorf("expected code 400, got %d", response.Code)
+	}
+	if response.Message != "非法状态流转" {
+		t.Errorf("expected message %q, got %q", "非法状态流转", response.Message)
 	}
 }

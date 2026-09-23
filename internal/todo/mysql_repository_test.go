@@ -45,9 +45,9 @@ func TestMySQLRepositoryList(t *testing.T) {
 
 	result, err := db.ExecContext(
 		ctx,
-		`INSERT INTO todos (title, done) VALUES (?, ?)`,
+		`INSERT INTO todos (title, status) VALUES (?, ?)`,
 		title,
-		false,
+		StatusPending,
 	)
 	if err != nil {
 		t.Fatalf("insert test todo: %v", err)
@@ -98,9 +98,9 @@ func TestMySQLRepositoryGetByID(t *testing.T) {
 
 	result, err := db.ExecContext(
 		ctx,
-		`INSERT INTO todos (title, done) VALUES (?, ?)`,
+		`INSERT INTO todos (title, status) VALUES (?, ?)`,
 		title,
-		false,
+		StatusPending,
 	)
 	if err != nil {
 		t.Fatalf("insert test todo: %v", err)
@@ -201,8 +201,8 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 	if created.Title != title {
 		t.Errorf("expected title %q, got %q", title, created.Title)
 	}
-	if created.Done {
-		t.Errorf("expected done to be false")
+	if created.Status != StatusPending {
+		t.Errorf("expected status %q", StatusPending)
 	}
 
 	item, found, err := repo.GetByID(ctx, created.ID)
@@ -218,8 +218,8 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 	if item.Title != title {
 		t.Errorf("expected title %q, got %q", title, item.Title)
 	}
-	if item.Done {
-		t.Errorf("expected stored done to be false")
+	if item.Status != StatusPending {
+		t.Errorf("expected stored status %q", StatusPending)
 	}
 }
 
@@ -250,7 +250,7 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 		}
 	})
 
-	updated, found, err := repo.UpdateStatus(ctx, created.ID, true)
+	updated, found, err := repo.UpdateStatus(ctx, created.ID, StatusProcessing)
 
 	if err != nil {
 		t.Fatalf("update todo status: %v", err)
@@ -258,8 +258,8 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 	if !found {
 		t.Fatalf("expected todo to be found")
 	}
-	if !updated.Done {
-		t.Errorf("expected done to be true")
+	if updated.Status != StatusProcessing {
+		t.Errorf("expected status %q", StatusProcessing)
 	}
 	if updated.ID != created.ID {
 		t.Errorf("expected ID %d, got %d", created.ID, updated.ID)
@@ -275,11 +275,11 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 	if !found {
 		t.Fatalf("expected todo to be found")
 	}
-	if !item.Done {
-		t.Errorf("expected stored done to be true")
+	if item.Status != StatusProcessing {
+		t.Errorf("expected stored status %q", StatusProcessing)
 	}
 
-	_, found, err = repo.UpdateStatus(ctx, 999999999, true)
+	_, found, err = repo.UpdateStatus(ctx, 999999999, StatusProcessing)
 	if err != nil {
 		t.Fatalf("update missing todo: %v", err)
 	}

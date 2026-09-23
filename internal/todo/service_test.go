@@ -26,9 +26,9 @@ func (f *fakeRepository) GetByID(ctx context.Context, id int) (Todo, bool, error
 
 func (f *fakeRepository) Create(ctx context.Context, title string) (Todo, error) {
 	item := Todo{
-		ID:    len(f.todos) + 1,
-		Title: title,
-		Done:  false,
+		ID:     len(f.todos) + 1,
+		Title:  title,
+		Status: StatusPending,
 	}
 	f.todos = append(f.todos, item)
 	return item, nil
@@ -37,11 +37,11 @@ func (f *fakeRepository) Create(ctx context.Context, title string) (Todo, error)
 func (f *fakeRepository) UpdateStatus(
 	ctx context.Context,
 	id int,
-	done bool,
+	status Status,
 ) (Todo, bool, error) {
 	for i := range f.todos {
 		if f.todos[i].ID == id {
-			f.todos[i].Done = done
+			f.todos[i].Status = status
 			return f.todos[i], true, nil
 		}
 	}
@@ -51,8 +51,8 @@ func (f *fakeRepository) UpdateStatus(
 func TestServiceCreate(t *testing.T) {
 	repo := &fakeRepository{
 		todos: []Todo{
-			{ID: 1, Title: "Learn Go", Done: false},
-			{ID: 2, Title: "Build a web app", Done: false},
+			{ID: 1, Title: "Learn Go", Status: StatusPending},
+			{ID: 2, Title: "Build a web app", Status: StatusPending},
 		},
 	}
 
@@ -68,8 +68,8 @@ func TestServiceCreate(t *testing.T) {
 	if created.Title != "Write tests" {
 		t.Errorf("Expected title 'Write tests', got '%s'", created.Title)
 	}
-	if created.Done != false {
-		t.Errorf("Expected Done false, got %v", created.Done)
+	if created.Status != StatusPending {
+		t.Errorf("Expected status %q, got %q", StatusPending, created.Status)
 	}
 	list, err := service.List(context.Background())
 	if err != nil {
@@ -85,22 +85,22 @@ func TestServiceCreate(t *testing.T) {
 func TestServiceUpdateStatus(t *testing.T) {
 	repo := &fakeRepository{
 		todos: []Todo{
-			{ID: 1, Title: "Learn Go", Done: false},
-			{ID: 2, Title: "Build a web app", Done: false},
+			{ID: 1, Title: "Learn Go", Status: StatusPending},
+			{ID: 2, Title: "Build a web app", Status: StatusPending},
 		},
 	}
 
 	service := NewService(repo)
 
-	updated, found, err := service.UpdateStatus(context.Background(), 1, true)
+	updated, found, err := service.UpdateStatus(context.Background(), 1, StatusProcessing)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 	if !found {
 		t.Fatalf("Expected to find todo with ID 1")
 	}
-	if updated.Done != true {
-		t.Errorf("Expected Done true, got %v", updated.Done)
+	if updated.Status != StatusProcessing {
+		t.Errorf("Expected status %q, got %q", StatusProcessing, updated.Status)
 	}
 	stored, found, err := service.GetByID(context.Background(), 1)
 	if err != nil {
@@ -109,10 +109,10 @@ func TestServiceUpdateStatus(t *testing.T) {
 	if !found {
 		t.Fatalf("expected to find todo with ID 1")
 	}
-	if !stored.Done {
-		t.Errorf("expected stored todo Done to be true")
+	if stored.Status != StatusProcessing {
+		t.Errorf("expected stored todo status %q", StatusProcessing)
 	}
-	_, found, err = service.UpdateStatus(context.Background(), 999, true)
+	_, found, err = service.UpdateStatus(context.Background(), 999, StatusProcessing)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -122,11 +122,37 @@ func TestServiceUpdateStatus(t *testing.T) {
 	}
 }
 
+func TestServiceRejectsInvalidStatusTransition(t *testing.T) {
+	repo := &fakeRepository{
+		todos: []Todo{{ID: 1, Title: "Learn Go", Status: StatusPending}},
+	}
+
+	service := NewService(repo)
+	_, found, err := service.UpdateStatus(context.Background(), 1, StatusCompleted)
+	if err != ErrInvalidTransition {
+		t.Fatalf("expected invalid transition error, got %v", err)
+	}
+	if found {
+		t.Fatal("expected invalid transition not to report found")
+	}
+
+	item, found, err := service.GetByID(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("get todo: %v", err)
+	}
+	if !found {
+		t.Fatal("expected todo to exist")
+	}
+	if item.Status != StatusPending {
+		t.Errorf("expected status %q, got %q", StatusPending, item.Status)
+	}
+}
+
 func TestServiceGetByID(t *testing.T) {
 	repo := &fakeRepository{
 		todos: []Todo{
-			{ID: 1, Title: "Learn Go", Done: false},
-			{ID: 2, Title: "Build a web app", Done: false},
+			{ID: 1, Title: "Learn Go", Status: StatusPending},
+			{ID: 2, Title: "Build a web app", Status: StatusPending},
 		},
 	}
 

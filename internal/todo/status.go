@@ -1,5 +1,7 @@
 package todo
 
+import "errors"
+
 type Status string
 
 const (
@@ -8,6 +10,8 @@ const (
 	StatusCompleted  Status = "COMPLETED"
 	StatusFailed     Status = "FAILED"
 )
+
+var ErrInvalidTransition = errors.New("invalid status transition")
 
 func CanTransition(from, to Status) bool {
 	if from == to {

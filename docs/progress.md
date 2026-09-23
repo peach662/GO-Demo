@@ -43,6 +43,13 @@
 - [x] 修改 `database.OpenMySQL(dsn)`，移除数据库 DSN 硬编码。
 - [x] 统一 MySQL 集成测试配置加载，并处理测试工作目录与项目根目录不同的问题。
 - [x] 定义 Todo 状态类型、合法流转规则和同状态幂等规则，并用表格测试验证。
+- [x] 将 Todo 模型、请求 DTO、Repository、Service、Handler 和测试从 `Done bool` 迁移为 `Status Status`。
+- [x] 在 Service 更新状态前调用 `CanTransition`，拒绝非法状态流转。
+- [x] 修正 Repository 同状态更新的幂等行为：通过更新后查询区分“记录不存在”和“状态未变化”。
+- [x] 新增 `migrations/002_add_status_to_todos.sql`，将旧 `done` 数据迁移到 `status`。
+- [x] 启动 Docker Desktop 和 MySQL 容器，执行 `002_add_status_to_todos.sql`。
+- [x] 验证 `status` 字段、历史数据回填和 `chk_todos_status` CHECK 约束。
+- [x] 迁移后执行 `go test -count=1 ./...`，根包、配置、数据库和 Todo 集成测试全部通过。
 
 ## 最近验证
 
@@ -157,11 +164,10 @@ MySQL
 
 ## 唯一下一步
 
-下一阶段：把状态流转规则接入 Service，并设计操作审计记录。
+下一阶段：设计状态变化的操作审计记录和事务边界。
 
 要求：
 
-- Service 更新状态前调用 `CanTransition`，拒绝非法流转。
 - 设计状态变化的操作审计记录和事务边界。
 - 保持 `.env` 只在本地使用，继续维护 `.env.example`。
 

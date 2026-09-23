@@ -17,7 +17,7 @@ func NewMySQLRepository(db *sql.DB) *MySQLRepository {
 }
 func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
 	const query = `
-		SELECT id, title, done
+		SELECT id, title, status
 		FROM todos
 		ORDER BY id
 		`
@@ -30,7 +30,7 @@ func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
 	todos := make([]Todo, 0)
 	for rows.Next() {
 		var item Todo
-		if err := rows.Scan(&item.ID, &item.Title, &item.Done); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Status); err != nil {
 			return nil, err
 		}
 		todos = append(todos, item)
@@ -41,10 +41,10 @@ func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
 	return todos, nil
 }
 func (r *MySQLRepository) GetByID(ctx context.Context, id int) (Todo, bool, error) {
-	const query = `SELECT id,title,done FROM todos WHERE id = ?`
+	const query = `SELECT id,title,status FROM todos WHERE id = ?`
 
 	var item Todo
-	err := r.db.QueryRowContext(ctx, query, id).Scan(&item.ID, &item.Title, &item.Done)
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&item.ID, &item.Title, &item.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Todo{}, false, nil
@@ -60,8 +60,8 @@ func (r *MySQLRepository) Create(
 	ctx context.Context,
 	title string,
 ) (Todo, error) {
-	const query = `INSERT INTO todos (title, done) VALUES (?, ?)`
-	result, err := r.db.ExecContext(ctx, query, title, false)
+	const query = `INSERT INTO todos (title, status) VALUES (?, ?)`
+	result, err := r.db.ExecContext(ctx, query, title, StatusPending)
 	if err != nil {
 		return Todo{}, err
 	}
@@ -69,24 +69,22 @@ func (r *MySQLRepository) Create(
 	if err != nil {
 		return Todo{}, err
 	}
-	return Todo{ID: int(id), Title: title, Done: false}, nil
+	return Todo{
+		ID:     int(id),
+		Title:  title,
+		Status: StatusPending,
+	}, nil
 }
+
 func (r *MySQLRepository) UpdateStatus(
 	ctx context.Context,
 	id int,
-	done bool,
+	status Status,
 ) (Todo, bool, error) {
-	const query = `UPDATE todos SET done = ? WHERE id = ?`
-	result, err := r.db.ExecContext(ctx, query, done, id)
+	const query = `UPDATE todos SET status = ? WHERE id = ?`
+	_, err := r.db.ExecContext(ctx, query, status, id)
 	if err != nil {
 		return Todo{}, false, err
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return Todo{}, false, err
-	}
-	if rowsAffected == 0 {
-		return Todo{}, false, nil
 	}
 	item, found, err := r.GetByID(ctx, id)
 	if err != nil {

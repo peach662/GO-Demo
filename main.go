@@ -4,6 +4,7 @@ import (
 	"awesomeProject/internal/config"
 	"awesomeProject/internal/database"
 	"awesomeProject/internal/todo"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"strconv"
 )
@@ -134,8 +135,16 @@ func newRouter(service *todo.Service) *gin.Engine {
 			})
 			return
 		}
-		updatedTodo, found, err := service.UpdateStatus(c.Request.Context(), id, *req.Done)
+		updatedTodo, found, err := service.UpdateStatus(c.Request.Context(), id, *req.Status)
 		if err != nil {
+			if errors.Is(err, todo.ErrInvalidTransition) {
+				c.JSON(400, gin.H{
+					"code":    400,
+					"message": "非法状态流转",
+					"data":    nil,
+				})
+				return
+			}
 			c.JSON(500, gin.H{
 				"code":    500,
 				"message": "服务内部错误",
