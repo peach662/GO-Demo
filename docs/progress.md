@@ -50,6 +50,9 @@
 - [x] 启动 Docker Desktop 和 MySQL 容器，执行 `002_add_status_to_todos.sql`。
 - [x] 验证 `status` 字段、历史数据回填和 `chk_todos_status` CHECK 约束。
 - [x] 迁移后执行 `go test -count=1 ./...`，根包、配置、数据库和 Todo 集成测试全部通过。
+- [x] 确认 `todo_status_logs` 不加外键：`todo_id` 是否真实存在由应用层查询和事务保证。
+- [x] 在本地 Docker MySQL 执行 `migrations/003_create_todo_status_logs.sql`。
+- [x] 验证 `todo_status_logs` 已创建，包含 `idx_todo_status_logs_todo_id`、两条状态 CHECK，且没有 FOREIGN KEY。
 
 ## 最近验证
 
@@ -139,6 +142,13 @@ go test -race -count=1 ./...
 
 Docker 环境也已确认可用：Docker Desktop 4.55.0，Docker Engine 29.1.3。
 
+已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
+
+- 字段：`id`、`todo_id`、`from_status`、`to_status`、`created_at`
+- 索引：`PRIMARY (id)`、`idx_todo_status_logs_todo_id (todo_id)`
+- CHECK：`chk_todo_status_logs_from_status`、`chk_todo_status_logs_to_status`
+- 无 FOREIGN KEY
+
 用户已确认 MySQL 容器状态：
 
 ```text
@@ -164,11 +174,16 @@ MySQL
 
 ## 唯一下一步
 
-下一阶段：设计状态变化的操作审计记录和事务边界。
+下一阶段：在同一事务里更新 Todo 状态并写入审计日志。
 
 要求：
 
-- 设计状态变化的操作审计记录和事务边界。
+- 在 `MySQLRepository.UpdateStatus` 中开启事务。
+- 同一事务内更新 `todos.status`，并插入 `todo_status_logs`（`todo_id`、`from_status`、`to_status`）。
+- 任一步失败则回滚，避免只改状态或只写日志。
+- 同状态幂等成功时不插入审计日志。
+- 不存在的 Todo 不写审计日志。
+- 仍由 Service 的 `CanTransition` 拒绝非法流转。
 - 保持 `.env` 只在本地使用，继续维护 `.env.example`。
 
 写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
