@@ -53,6 +53,9 @@
 - [x] 确认 `todo_status_logs` 不加外键：`todo_id` 是否真实存在由应用层查询和事务保证。
 - [x] 在本地 Docker MySQL 执行 `migrations/003_create_todo_status_logs.sql`。
 - [x] 验证 `todo_status_logs` 已创建，包含 `idx_todo_status_logs_todo_id`、两条状态 CHECK，且没有 FOREIGN KEY。
+- [x] `MySQLRepository.UpdateStatus` 改为事务：`SELECT ... FOR UPDATE` 读取当前行，状态变化时更新 `todos.status` 并插入 `todo_status_logs`，失败由 `Rollback` 撤销。
+- [x] 同状态直接返回，不写审计；不存在的 Todo 返回未找到，不写审计。
+- [ ] `TestMySQLRepositoryUpdateStatus` 还没有断言审计行数，也还没有覆盖同状态重复更新不新增审计。
 
 ## 最近验证
 
@@ -142,6 +145,14 @@ go test -race -count=1 ./...
 
 Docker 环境也已确认可用：Docker Desktop 4.55.0，Docker Engine 29.1.3。
 
+事务版 `UpdateStatus` 已写入代码，但测试还没有检查审计表。已执行：
+
+```powershell
+go test -count=1 ./internal/todo -run TestMySQLRepositoryUpdateStatus
+```
+
+结果通过。这个测试只验证了状态更新和不存在的 ID，没有验证 `todo_status_logs`。
+
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
 
 - 字段：`id`、`todo_id`、`from_status`、`to_status`、`created_at`
@@ -174,19 +185,16 @@ MySQL
 
 ## 唯一下一步
 
-下一阶段：在同一事务里更新 Todo 状态并写入审计日志。
+在 `TestMySQLRepositoryUpdateStatus` 中补上审计验证。`UpdateStatus` 的实现先不要改。
 
 要求：
 
-- 在 `MySQLRepository.UpdateStatus` 中开启事务。
-- 同一事务内更新 `todos.status`，并插入 `todo_status_logs`（`todo_id`、`from_status`、`to_status`）。
-- 任一步失败则回滚，避免只改状态或只写日志。
-- 同状态幂等成功时不插入审计日志。
-- 不存在的 Todo 不写审计日志。
-- 仍由 Service 的 `CanTransition` 拒绝非法流转。
+- `PENDING -> PROCESSING` 成功后，`todo_status_logs` 恰好有 1 行，`from_status` 为 `PENDING`，`to_status` 为 `PROCESSING`。
+- 再用相同状态 `PROCESSING` 更新一次，审计仍然只有这 1 行。
+- 测试清理时删除该 `todo_id` 的审计记录。
 - 保持 `.env` 只在本地使用，继续维护 `.env.example`。
 
-写完运行 `go fmt ./...` 和 `go test ./...`，再贴出文件内容和结果。
+写完运行 `go fmt ./...` 和 `go test ./...`，再贴出结果。
 
 ## 跨设备与跨 Agent 续接
 

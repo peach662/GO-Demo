@@ -81,14 +81,38 @@ func (r *MySQLRepository) UpdateStatus(
 	id int,
 	status Status,
 ) (Todo, bool, error) {
-	const query = `UPDATE todos SET status = ? WHERE id = ?`
-	_, err := r.db.ExecContext(ctx, query, status, id)
+
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Todo{}, false, err
 	}
-	item, found, err := r.GetByID(ctx, id)
+	defer tx.Rollback()
+
+	const selectQuery = `SELECT id,title,status FROM todos WHERE id = ? FOR UPDATE`
+	var item Todo
+	err = tx.QueryRowContext(ctx, selectQuery, id).Scan(&item.ID, &item.Title, &item.Status)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Todo{}, false, nil
+		}
 		return Todo{}, false, err
 	}
-	return item, found, nil
+	if item.Status == status {
+		return item, true, nil
+	}
+	const updateQuery = `UPDATE todos SET status = ? WHERE id = ?`
+	if _, err = tx.ExecContext(ctx, updateQuery, status, id); err != nil {
+		return Todo{}, false, err
+	}
+
+	const insertLogQuery = `INSERT INTO todo_status_logs (todo_id, from_status, to_status) VALUES (?, ?, ?)`
+	if _, err = tx.ExecContext(ctx, insertLogQuery, id, item.Status, status); err != nil {
+		return Todo{}, false, err
+	}
+	if err = tx.Commit(); err != nil {
+		return Todo{}, false, err
+	}
+	item.Status = status
+
+	return item, true, nil
 }
