@@ -59,6 +59,7 @@
 - [x] `EXPLAIN` 按 `todo_id` 查询 `todo_status_logs` 时，实际使用索引 `idx_todo_status_logs_todo_id`，`type` 为 `ref`。
 - [x] 测试里的 `COUNT(*)`、`MIN(from_status)`、`MIN(to_status)` 聚合查询同样走这个索引，`Extra` 为空，因为状态列不在索引里，需要回表。
 - [x] `SHOW INDEX` 确认 `idx_todo_status_logs_todo_id` 只有 `todo_id` 一列，并且允许同一个 `todo_id` 有多行审计。
+- [x] 新增 `migrations/004_create_users.sql`，并在服务器 `awesome_project` 库创建 `users` 表。`username` 有唯一索引 `uk_users_username`，密码字段是 `password_hash`。
 
 ## 最近验证
 
@@ -217,18 +218,17 @@ MySQL
 
 ## 唯一下一步
 
-新建 `migrations/004_create_users.sql`，只建用户表。先不要改 Go 代码，也不要在服务器上执行。
+新建 `internal/user/model.go`。包名是 `user`。只定义用户结构体，先不要写数据库代码。
 
-表名：`users`。
+```go
+type User struct {
+    ID           int
+    Username     string
+    PasswordHash string
+}
+```
 
-字段：
-
-- `id`：`BIGINT UNSIGNED`，自增，主键。
-- `username`：`VARCHAR(64)`，非空，并且唯一。
-- `password_hash`：`VARCHAR(255)`，非空。这里存密码的哈希，不存明文密码。
-- `created_at`：`TIMESTAMP`，非空，默认当前时间。
-
-字符集用 `utf8mb4`。写完把文件内容发过来。
+`ID` 和 `Username` 的 JSON tag 分别是 `id`、`username`。`PasswordHash` 的 JSON tag 写成 `-`，这样以后接口返回用户时不会把密码哈希发出去。写完把文件内容发过来。
 
 ## 跨设备与跨 Agent 续接
 
