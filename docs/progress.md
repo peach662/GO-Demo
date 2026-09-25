@@ -56,6 +56,7 @@
 - [x] `MySQLRepository.UpdateStatus` 改为事务：`SELECT ... FOR UPDATE` 读取当前行，状态变化时更新 `todos.status` 并插入 `todo_status_logs`，失败由 `Rollback` 撤销。
 - [x] 同状态直接返回，不写审计；不存在的 Todo 返回未找到，不写审计。
 - [x] `TestMySQLRepositoryUpdateStatus` 断言 `PENDING -> PROCESSING` 后审计恰好 1 行，同状态再更新仍是这 1 行，清理时先删审计再删 Todo。
+- [x] `EXPLAIN` 按 `todo_id` 查询 `todo_status_logs` 时，实际使用索引 `idx_todo_status_logs_todo_id`，`type` 为 `ref`。
 
 ## 最近验证
 
@@ -161,6 +162,14 @@ go test -count=1 ./...
 
 根包和 `internal/todo` 通过。`TestMySQLRepositoryUpdateStatus` 覆盖了审计行数和同状态不新增审计。
 
+用户在服务器 MySQL 执行：
+
+```sql
+EXPLAIN SELECT id, from_status, to_status FROM todo_status_logs WHERE todo_id = 1;
+```
+
+`key` 为 `idx_todo_status_logs_todo_id`，`type` 为 `ref`，`key_len` 为 8，`rows` 为 1。
+
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
 
 - 字段：`id`、`todo_id`、`from_status`、`to_status`、`created_at`
@@ -193,15 +202,13 @@ MySQL
 
 ## 唯一下一步
 
-在服务器 MySQL 里执行：
+还在 `mysql>` 里执行这一句，看测试里那条聚合查询会不会继续用同一个索引：
 
 ```sql
-EXPLAIN SELECT id, from_status, to_status
-FROM todo_status_logs
-WHERE todo_id = 1;
+EXPLAIN SELECT COUNT(*), MIN(from_status), MIN(to_status) FROM todo_status_logs WHERE todo_id = 1;
 ```
 
-看结果里的 `key` 是不是 `idx_todo_status_logs_todo_id`。把 `EXPLAIN` 的输出贴出来。这次先不改 Go 代码。
+把整张结果表发过来。这次仍然不改 Go 代码。
 
 ## 跨设备与跨 Agent 续接
 
