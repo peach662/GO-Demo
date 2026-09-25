@@ -58,6 +58,7 @@
 - [x] `TestMySQLRepositoryUpdateStatus` 断言 `PENDING -> PROCESSING` 后审计恰好 1 行，同状态再更新仍是这 1 行，清理时先删审计再删 Todo。
 - [x] `EXPLAIN` 按 `todo_id` 查询 `todo_status_logs` 时，实际使用索引 `idx_todo_status_logs_todo_id`，`type` 为 `ref`。
 - [x] 测试里的 `COUNT(*)`、`MIN(from_status)`、`MIN(to_status)` 聚合查询同样走这个索引，`Extra` 为空，因为状态列不在索引里，需要回表。
+- [x] `SHOW INDEX` 确认 `idx_todo_status_logs_todo_id` 只有 `todo_id` 一列，并且允许同一个 `todo_id` 有多行审计。
 
 ## 最近验证
 
@@ -179,6 +180,11 @@ EXPLAIN SELECT COUNT(*), MIN(from_status), MIN(to_status) FROM todo_status_logs 
 
 结果相同：`key` 仍是 `idx_todo_status_logs_todo_id`，`type` 为 `ref`，`Extra` 为 `NULL`。`WHERE todo_id = 1` 先用索引定位，再回表计算 `COUNT` 和 `MIN`。
 
+`SHOW INDEX FROM todo_status_logs` 有两行：
+
+- `PRIMARY` 的 `Column_name` 是 `id`，`Non_unique` 为 0，主键不能重复。
+- `idx_todo_status_logs_todo_id` 的 `Column_name` 只有 `todo_id`，`Non_unique` 为 1，同一个任务可以有多条审计。`Cardinality` 为 0，是因为当前表里没有数据。
+
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
 
 - 字段：`id`、`todo_id`、`from_status`、`to_status`、`created_at`
@@ -211,13 +217,18 @@ MySQL
 
 ## 唯一下一步
 
-在 `mysql>` 里执行：
+新建 `migrations/004_create_users.sql`，只建用户表。先不要改 Go 代码，也不要在服务器上执行。
 
-```sql
-SHOW INDEX FROM todo_status_logs;
-```
+表名：`users`。
 
-看 `idx_todo_status_logs_todo_id` 这一行的 `Column_name`。确认这个索引里只有 `todo_id`。这就是上一条 `EXPLAIN` 的 `Extra` 为空的原因：`from_status` 和 `to_status` 不在索引里，定位之后还要回表读取。这次仍然不改 Go 代码。把结果发过来。
+字段：
+
+- `id`：`BIGINT UNSIGNED`，自增，主键。
+- `username`：`VARCHAR(64)`，非空，并且唯一。
+- `password_hash`：`VARCHAR(255)`，非空。这里存密码的哈希，不存明文密码。
+- `created_at`：`TIMESTAMP`，非空，默认当前时间。
+
+字符集用 `utf8mb4`。写完把文件内容发过来。
 
 ## 跨设备与跨 Agent 续接
 
