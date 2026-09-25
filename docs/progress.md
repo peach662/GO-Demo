@@ -4,7 +4,7 @@
 
 当前阶段：企业级后端第 1 步，正在把内存版 Todo API 迁移到 MySQL。
 
-当前项目：`D:\demo\awesomeProject`
+当前项目：`E:\projects\GO-Demo\GO-Demo`。MySQL 在服务器 `124.221.130.183:33603` 的库 `awesome_project`。
 
 ## 已完成
 
@@ -55,7 +55,7 @@
 - [x] 验证 `todo_status_logs` 已创建，包含 `idx_todo_status_logs_todo_id`、两条状态 CHECK，且没有 FOREIGN KEY。
 - [x] `MySQLRepository.UpdateStatus` 改为事务：`SELECT ... FOR UPDATE` 读取当前行，状态变化时更新 `todos.status` 并插入 `todo_status_logs`，失败由 `Rollback` 撤销。
 - [x] 同状态直接返回，不写审计；不存在的 Todo 返回未找到，不写审计。
-- [ ] `TestMySQLRepositoryUpdateStatus` 还没有断言审计行数，也还没有覆盖同状态重复更新不新增审计。
+- [x] `TestMySQLRepositoryUpdateStatus` 断言 `PENDING -> PROCESSING` 后审计恰好 1 行，同状态再更新仍是这 1 行，清理时先删审计再删 Todo。
 
 ## 最近验证
 
@@ -151,7 +151,15 @@ Docker 环境也已确认可用：Docker Desktop 4.55.0，Docker Engine 29.1.3�
 go test -count=1 ./internal/todo -run TestMySQLRepositoryUpdateStatus
 ```
 
-结果通过。这个测试只验证了状态更新和不存在的 ID，没有验证 `todo_status_logs`。
+结果通过。这个测试当时只验证了状态更新和不存在的 ID。
+
+2026-09-25 已把连接改到服务器 MySQL，并执行：
+
+```powershell
+go test -count=1 ./...
+```
+
+根包和 `internal/todo` 通过。`TestMySQLRepositoryUpdateStatus` 覆盖了审计行数和同状态不新增审计。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
 
@@ -185,16 +193,15 @@ MySQL
 
 ## 唯一下一步
 
-在 `TestMySQLRepositoryUpdateStatus` 中补上审计验证。`UpdateStatus` 的实现先不要改。
+在服务器 MySQL 里执行：
 
-要求：
+```sql
+EXPLAIN SELECT id, from_status, to_status
+FROM todo_status_logs
+WHERE todo_id = 1;
+```
 
-- `PENDING -> PROCESSING` 成功后，`todo_status_logs` 恰好有 1 行，`from_status` 为 `PENDING`，`to_status` 为 `PROCESSING`。
-- 再用相同状态 `PROCESSING` 更新一次，审计仍然只有这 1 行。
-- 测试清理时删除该 `todo_id` 的审计记录。
-- 保持 `.env` 只在本地使用，继续维护 `.env.example`。
-
-写完运行 `go fmt ./...` 和 `go test ./...`，再贴出结果。
+看结果里的 `key` 是不是 `idx_todo_status_logs_todo_id`。把 `EXPLAIN` 的输出贴出来。这次先不改 Go 代码。
 
 ## 跨设备与跨 Agent 续接
 
@@ -218,7 +225,7 @@ MySQL
 不要跳过基础，也不要直接替我大段完成项目代码。
 ```
 
-项目路径：`D:\demo\awesomeProject`。
+项目路径：`E:\projects\GO-Demo\GO-Demo`。换电脑时先 `git pull`，SSH 私钥放在 `~/.ssh/id_ed25519`，并按 `.cursor/skills/server-middleware/SKILL.md` 配置主机别名 `middleware`。
 
 Git 同步状态：
 

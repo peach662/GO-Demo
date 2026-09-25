@@ -12,8 +12,8 @@ type Config struct {
 }
 
 func Load() (Config, error) {
-	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
-		return Config{}, fmt.Errorf("load .env: %w", err)
+	if err := loadLocalEnv(".env", ".env.example"); err != nil {
+		return Config{}, err
 	}
 
 	dsn := os.Getenv("MYSQL_DSN")
@@ -24,4 +24,17 @@ func Load() (Config, error) {
 	return Config{
 		MySQLDSN: dsn,
 	}, nil
+}
+
+func loadLocalEnv(paths ...string) error {
+	for _, path := range paths {
+		err := godotenv.Load(path)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("load %s: %w", path, err)
+		}
+		if os.Getenv("MYSQL_DSN") != "" {
+			return nil
+		}
+	}
+	return nil
 }

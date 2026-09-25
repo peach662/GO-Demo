@@ -19,6 +19,11 @@ func openTestDB(t *testing.T) *sql.DB {
 	if err := godotenv.Load("../../.env"); err != nil && !os.IsNotExist(err) {
 		t.Fatalf("load .env: %v", err)
 	}
+	if os.Getenv("MYSQL_DSN") == "" {
+		if err := godotenv.Load("../../.env.example"); err != nil && !os.IsNotExist(err) {
+			t.Fatalf("load .env.example: %v", err)
+		}
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -240,7 +245,16 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		_, err := db.ExecContext(
+
+		_, err = db.ExecContext(
+			context.Background(),
+			`DELETE FROM todo_status_logs WHERE todo_id = ?`,
+			created.ID,
+		)
+		if err != nil {
+			t.Errorf("delete test todo status logs: %v", err)
+		}
+		_, err = db.ExecContext(
 			context.Background(),
 			`DELETE FROM todos WHERE id = ?`,
 			created.ID,
@@ -248,6 +262,7 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 		if err != nil {
 			t.Errorf("delete test todo: %v", err)
 		}
+
 	})
 
 	updated, found, err := repo.UpdateStatus(ctx, created.ID, StatusProcessing)
@@ -268,6 +283,42 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 		t.Errorf("expected title %q, got %q", title, updated.Title)
 	}
 
+	var count int
+	var fromStatus, toStatus string
+	err = db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(*), MIN(from_status), MIN(to_status) FROM todo_status_logs WHERE todo_id = ?`,
+		created.ID,
+	).Scan(&count, &fromStatus, &toStatus)
+	if err != nil {
+		t.Fatalf("get todo status logs: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 status log, got %d", count)
+	}
+	if fromStatus != string(StatusPending) {
+		t.Errorf("expected from status %q, got %q", StatusPending, fromStatus)
+	}
+	if toStatus != string(StatusProcessing) {
+		t.Errorf("expected to status %q, got %q", StatusProcessing, toStatus)
+	}
+
+	updated, found, err = repo.UpdateStatus(ctx, created.ID, StatusProcessing)
+	if err != nil {
+		t.Fatalf("update todo status: %v", err)
+	}
+	if !found {
+		t.Fatalf("expected todo to be found")
+	}
+	if updated.Status != StatusProcessing {
+		t.Errorf("expected status %q", StatusProcessing)
+	}
+	if updated.ID != created.ID {
+		t.Errorf("expected ID %d, got %d", created.ID, updated.ID)
+	}
+	if updated.Title != title {
+		t.Errorf("expected title %q, got %q", title, updated.Title)
+	}
 	item, found, err := repo.GetByID(ctx, created.ID)
 	if err != nil {
 		t.Fatalf("get todo by ID: %v", err)
@@ -279,6 +330,25 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 		t.Errorf("expected stored status %q", StatusProcessing)
 	}
 
+	var countAgain int
+	var fromStatusAgain, toStatusAgain string
+	err = db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(*), MIN(from_status), MIN(to_status) FROM todo_status_logs WHERE todo_id = ?`,
+		created.ID,
+	).Scan(&countAgain, &fromStatusAgain, &toStatusAgain)
+	if err != nil {
+		t.Fatalf("get todo status logs: %v", err)
+	}
+	if countAgain != 1 {
+		t.Errorf("expected 1 status log, got %d", countAgain)
+	}
+	if fromStatusAgain != string(StatusPending) {
+		t.Errorf("expected from status %q, got %q", StatusPending, fromStatusAgain)
+	}
+	if toStatusAgain != string(StatusProcessing) {
+		t.Errorf("expected to status %q, got %q", StatusProcessing, toStatusAgain)
+	}
 	_, found, err = repo.UpdateStatus(ctx, 999999999, StatusProcessing)
 	if err != nil {
 		t.Fatalf("update missing todo: %v", err)
