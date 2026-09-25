@@ -57,6 +57,7 @@
 - [x] 同状态直接返回，不写审计；不存在的 Todo 返回未找到，不写审计。
 - [x] `TestMySQLRepositoryUpdateStatus` 断言 `PENDING -> PROCESSING` 后审计恰好 1 行，同状态再更新仍是这 1 行，清理时先删审计再删 Todo。
 - [x] `EXPLAIN` 按 `todo_id` 查询 `todo_status_logs` 时，实际使用索引 `idx_todo_status_logs_todo_id`，`type` 为 `ref`。
+- [x] 测试里的 `COUNT(*)`、`MIN(from_status)`、`MIN(to_status)` 聚合查询同样走这个索引，`Extra` 为空，因为状态列不在索引里，需要回表。
 
 ## 最近验证
 
@@ -170,6 +171,14 @@ EXPLAIN SELECT id, from_status, to_status FROM todo_status_logs WHERE todo_id = 
 
 `key` 为 `idx_todo_status_logs_todo_id`，`type` 为 `ref`，`key_len` 为 8，`rows` 为 1。
 
+同一张表上的聚合查询：
+
+```sql
+EXPLAIN SELECT COUNT(*), MIN(from_status), MIN(to_status) FROM todo_status_logs WHERE todo_id = 1;
+```
+
+结果相同：`key` 仍是 `idx_todo_status_logs_todo_id`，`type` 为 `ref`，`Extra` 为 `NULL`。`WHERE todo_id = 1` 先用索引定位，再回表计算 `COUNT` 和 `MIN`。
+
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
 
 - 字段：`id`、`todo_id`、`from_status`、`to_status`、`created_at`
@@ -202,13 +211,13 @@ MySQL
 
 ## 唯一下一步
 
-还在 `mysql>` 里执行这一句，看测试里那条聚合查询会不会继续用同一个索引：
+在 `mysql>` 里执行：
 
 ```sql
-EXPLAIN SELECT COUNT(*), MIN(from_status), MIN(to_status) FROM todo_status_logs WHERE todo_id = 1;
+SHOW INDEX FROM todo_status_logs;
 ```
 
-把整张结果表发过来。这次仍然不改 Go 代码。
+看 `idx_todo_status_logs_todo_id` 这一行的 `Column_name`。确认这个索引里只有 `todo_id`。这就是上一条 `EXPLAIN` 的 `Extra` 为空的原因：`from_status` 和 `to_status` 不在索引里，定位之后还要回表读取。这次仍然不改 Go 代码。把结果发过来。
 
 ## 跨设备与跨 Agent 续接
 
