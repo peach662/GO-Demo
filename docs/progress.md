@@ -63,6 +63,7 @@
 - [x] 新增 `internal/user/model.go`。`User` 的 JSON 只包含 `id` 和 `username`，`PasswordHash` 使用 `json:"-"`，不会出现在响应里。
 - [x] `TestUser` 用 `json.Marshal` 验证响应包含 `alice`，且不包含 `secret-hash` 和 `password_hash`。`go test ./internal/user/` 通过。
 - [x] 定义 `user.Repository` 接口：`Create` 用于注册，`GetByUsername` 用 `bool` 表示用户是否存在。
+- [x] 定义 `user.MySQLRepository` 和 `NewMySQLRepository`，保存 `*sql.DB` 连接池。尚未实现 `Create` 和 `GetByUsername`。
 
 ## 最近验证
 
@@ -221,15 +222,23 @@ MySQL
 
 ## 唯一下一步
 
-新建 `internal/user/mysql_repository.go`。包名是 `user`。只写结构体和构造函数，先不要实现 `Create` 和 `GetByUsername`。
+在 `internal/user/mysql_repository.go` 里实现 `GetByUsername`。先不要实现 `Create`。
 
-要求：
+方法签名：
 
-- 导入 `database/sql`。
-- 定义 `MySQLRepository`，包含未导出字段 `db *sql.DB`。
-- 定义 `NewMySQLRepository(db *sql.DB) *MySQLRepository`，把传入的连接池保存下来。
+```go
+func (r *MySQLRepository) GetByUsername(ctx context.Context, username string) (User, bool, error)
+```
 
-对照 `internal/todo/mysql_repository.go` 开头的结构体写法。写完把文件内容发过来。
+对照 `internal/todo/mysql_repository.go` 的 `GetByID`：
+
+- SQL：`SELECT id, username, password_hash FROM users WHERE username = ?`
+- 用 `QueryRowContext` 和 `Scan` 填进 `User`。
+- 查不到行：返回 `sql.ErrNoRows` 时，结果是 `User{}, false, nil`。
+- 其他数据库错误：返回 `User{}, false, err`。
+- 查到了：返回这个用户、`true` 和 `nil`。
+
+需要导入 `context` 和 `errors`。写完把文件内容发过来。
 
 ## 跨设备与跨 Agent 续接
 
