@@ -29,3 +29,19 @@ func (r *MySQLRepository) GetByUsername(ctx context.Context, username string) (U
 	}
 	return user, true, nil
 }
+
+func (r *MySQLRepository) Create(ctx context.Context, username, passwordHash string) (User, error) {
+	const query = `
+		INSERT INTO users (username, password_hash)
+		VALUES (?, ?)
+	`
+	result, err := r.db.ExecContext(ctx, query, username, passwordHash)
+	if err != nil {
+		return User{}, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return User{}, err
+	}
+	return User{ID: int(id), Username: username, PasswordHash: passwordHash}, nil
+}

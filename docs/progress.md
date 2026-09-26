@@ -65,7 +65,8 @@
 - [x] 定义 `user.Repository` 接口：`Create` 用于注册，`GetByUsername` 用 `bool` 表示用户是否存在。
 - [x] 定义 `user.MySQLRepository` 和 `NewMySQLRepository`，保存 `*sql.DB` 连接池。
 - [x] 实现 `GetByUsername`：查到返回用户，`sql.ErrNoRows` 返回未找到，其他错误原样返回。
-- [x] `TestMySQLRepositoryGetByUsername` 用真实 MySQL 覆盖查到用户和查不到用户。`go test ./internal/user/` 通过。尚未实现 `Create`。
+- [x] `TestMySQLRepositoryGetByUsername` 用真实 MySQL 覆盖查到用户和查不到用户。`go test ./internal/user/` 通过。
+- [x] 实现 `Create`：插入 `username` 和 `password_hash`，用 `LastInsertId` 填入返回的 `User.ID`。还没有 `Create` 的数据库测试。
 
 ## 最近验证
 
@@ -224,23 +225,22 @@ MySQL
 
 ## 唯一下一步
 
-在 `internal/user/mysql_repository.go` 里实现 `Create`。先不要改测试。
+在 `internal/user/mysql_repository_test.go` 里新增 `TestMySQLRepositoryCreate`。不要改 `Create` 的实现。
 
-方法签名：
+要求：
 
-```go
-func (r *MySQLRepository) Create(ctx context.Context, username, passwordHash string) (User, error)
+- 用 `repo.Create` 创建用户，不要自己写 `INSERT`。用户名和密码哈希都带上 `time.Now().UnixNano()`。
+- `t.Cleanup` 里按用户名删除这行。
+- 断言 `err == nil`，返回的 `ID` 大于 0，`Username` 和 `PasswordHash` 与传入的一致。
+- 再用 `GetByUsername` 查一次，确认数据库里确实有这个用户，而且 `ID` 相同。
+
+写完运行：
+
+```powershell
+go test ./internal/user/
 ```
 
-对照 `internal/todo/mysql_repository.go` 的 `Create`：
-
-- SQL：`INSERT INTO users (username, password_hash) VALUES (?, ?)`。
-- 用 `ExecContext` 执行插入。
-- 用 `LastInsertId` 取出新用户的 `id`。
-- 返回 `User{ID: int(id), Username: username, PasswordHash: passwordHash}`。
-- 插入失败或取 ID 失败时，返回 `User{}` 和 `err`。
-
-写完把文件内容发过来。先运行 `go test ./internal/user/`，确认原来的测试仍然通过。
+把测试函数和结果发过来。
 
 ## 跨设备与跨 Agent 续接
 
