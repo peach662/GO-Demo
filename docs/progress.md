@@ -64,7 +64,8 @@
 - [x] `TestUser` 用 `json.Marshal` 验证响应包含 `alice`，且不包含 `secret-hash` 和 `password_hash`。`go test ./internal/user/` 通过。
 - [x] 定义 `user.Repository` 接口：`Create` 用于注册，`GetByUsername` 用 `bool` 表示用户是否存在。
 - [x] 定义 `user.MySQLRepository` 和 `NewMySQLRepository`，保存 `*sql.DB` 连接池。
-- [x] 实现 `GetByUsername`：查到返回用户，`sql.ErrNoRows` 返回未找到，其他错误原样返回。尚未实现 `Create`，也还没有数据库测试。
+- [x] 实现 `GetByUsername`：查到返回用户，`sql.ErrNoRows` 返回未找到，其他错误原样返回。
+- [x] `TestMySQLRepositoryGetByUsername` 用真实 MySQL 覆盖查到用户和查不到用户。`go test ./internal/user/` 通过。尚未实现 `Create`。
 
 ## 最近验证
 
@@ -223,23 +224,23 @@ MySQL
 
 ## 唯一下一步
 
-新建 `internal/user/mysql_repository_test.go`，为 `GetByUsername` 写真实 MySQL 测试。先不要实现 `Create`。
+在 `internal/user/mysql_repository.go` 里实现 `Create`。先不要改测试。
 
-对照 `internal/todo/mysql_repository_test.go` 里的 `openTestDB`：
+方法签名：
 
-- 用同样的方式读取 `../../.env`，没有 `MYSQL_DSN` 时再读 `../../.env.example`，然后 `config.Load` 和 `database.OpenMySQL`。
-- 用一条 `INSERT` 插入测试用户，用户名带上 `time.Now().UnixNano()`，避免和已有数据重名。
-- `t.Cleanup` 里按这个用户名删除测试行。
-- 调用 `GetByUsername`，断言找到了，并且 `ID`、`Username`、`PasswordHash` 正确。
-- 再用一个不存在的用户名调用，断言 `found == false` 且 `err == nil`。
-
-写完运行：
-
-```powershell
-go test ./internal/user/
+```go
+func (r *MySQLRepository) Create(ctx context.Context, username, passwordHash string) (User, error)
 ```
 
-把文件内容和结果发过来。
+对照 `internal/todo/mysql_repository.go` 的 `Create`：
+
+- SQL：`INSERT INTO users (username, password_hash) VALUES (?, ?)`。
+- 用 `ExecContext` 执行插入。
+- 用 `LastInsertId` 取出新用户的 `id`。
+- 返回 `User{ID: int(id), Username: username, PasswordHash: passwordHash}`。
+- 插入失败或取 ID 失败时，返回 `User{}` 和 `err`。
+
+写完把文件内容发过来。先运行 `go test ./internal/user/`，确认原来的测试仍然通过。
 
 ## 跨设备与跨 Agent 续接
 
