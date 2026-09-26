@@ -61,6 +61,7 @@
 - [x] `SHOW INDEX` 确认 `idx_todo_status_logs_todo_id` 只有 `todo_id` 一列，并且允许同一个 `todo_id` 有多行审计。
 - [x] 新增 `migrations/004_create_users.sql`，并在服务器 `awesome_project` 库创建 `users` 表。`username` 有唯一索引 `uk_users_username`，密码字段是 `password_hash`。
 - [x] 新增 `internal/user/model.go`。`User` 的 JSON 只包含 `id` 和 `username`，`PasswordHash` 使用 `json:"-"`，不会出现在响应里。
+- [x] `TestUser` 用 `json.Marshal` 验证响应包含 `alice`，且不包含 `secret-hash` 和 `password_hash`。`go test ./internal/user/` 通过。
 
 ## 最近验证
 
@@ -219,22 +220,18 @@ MySQL
 
 ## 唯一下一步
 
-新建 `internal/user/model_test.go`，包名仍是 `user`。用测试证明 `json:"-"` 生效。
+新建 `internal/user/repository.go`。包名是 `user`。只定义接口，先不要写 MySQL 实现。
 
-要求：
+对照 `internal/todo/repository.go`，定义：
 
-- 造一个 `User`：`ID` 为 1，`Username` 为 `alice`，`PasswordHash` 为 `secret-hash`。
-- 用 `json.Marshal` 把它变成 JSON 文本。
-- JSON 里要有 `alice`。
-- JSON 里不能出现 `secret-hash`，也不能出现 `password_hash`。
-
-用到的包是 `encoding/json`、`strings` 和 `testing`。写完运行：
-
-```powershell
-go test ./internal/user/
+```go
+type Repository interface {
+    Create(ctx context.Context, username, passwordHash string) (User, error)
+    GetByUsername(ctx context.Context, username string) (User, bool, error)
+}
 ```
 
-把文件内容和测试结果发过来。先不要写数据库代码。
+`Create` 用来注册。`GetByUsername` 用来登录时按用户名查找。第二个返回值 `bool` 表示找没找到，和 `Todo` 的 `GetByID` 一样。写完把文件内容发过来。
 
 ## 跨设备与跨 Agent 续接
 
