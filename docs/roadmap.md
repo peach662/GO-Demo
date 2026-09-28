@@ -466,7 +466,8 @@ AI 可以帮助你：
 - [x] `Service.Login`（密码校验，尚无 JWT）
 - [x] `POST /users/login` HTTP（先不发 JWT）
 - [x] 登录 HTTP 测试（成功 200 / 失败 401）
-- [ ] JWT：登录成功签发 token
+- [~] JWT：`internal/auth/jwt.go` 签发草稿已有（AI 辅助，**未掌握**）；尚未接入登录与中间件
+- [ ] `config` 读 `JWT_SECRET`，登录成功返回 `token`
 - [ ] JWT 鉴权中间件与 Todo 归属当前用户
 - [ ] 将 Go 应用纳入 Docker Compose 启动
 - [ ] 增加 Redis 缓存

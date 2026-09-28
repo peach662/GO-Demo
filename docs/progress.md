@@ -85,6 +85,8 @@
 - [x] `TestServiceLogin` 覆盖成功登录、错误密码、不存在用户。`go test ./...` 通过。
 - [x] 新增 `user.LoginRequest` 与 `POST /users/login`：`ErrInvalidCredentials` → 401；空用户名/空密码 → 400；成功返回用户。`go test ./...` 通过。
 - [x] 新增 `TestLoginRoute`：先注册再登录断言 200 与敏感字段不泄露；错密码断言 401。`go test . -run TestLoginRoute` 通过。
+- [~] **JWT 进行中（未掌握）**：已新增 `internal/auth/jwt.go`（`NewJWT`、`GenerateToken`：HS256、`user_id`/`exp`、空密钥拒绝）。代码主要由 AI 补全/辅助写出，**学习者尚未真正掌握**，换机器后需从「读懂并自己能重写签发」继续，不要跳过直接接中间件。
+  - 尚未完成：`config` 读 `JWT_SECRET`、登录响应返回 `token`、鉴权中间件、相关测试。
 
 ## 最近验证
 
@@ -321,20 +323,24 @@ Todo Service / User Service
 Todo Repository / User Repository
     |
 MySQL（服务器 124.221.130.183:33603）
+
+另：internal/auth（JWT 签发草稿已有，尚未接入登录 / 中间件）
 ```
 
 ## 唯一下一步
 
-开始 JWT：登录成功后发 token（先不做鉴权中间件）。
+**换机器后续学 JWT（优先弄懂，不要急着堆功能）。**
 
-要求：
+当前停在：`internal/auth/jwt.go` 已能编译的签发草稿，但学习者表示尚未掌握（AI 辅助写出）。
 
-- 选一个常用 JWT 库（例如 `github.com/golang-jwt/jwt/v5`），用 `go get` 加入依赖。
-- 增加签发函数：输入用户 ID（和可选用户名），用 HMAC 密钥生成 token；密钥从环境变量读取（例如 `JWT_SECRET`），先不要硬编码进仓库。
-- 改 `POST /users/login`：成功时响应里除了用户，再带上 `token` 字段。
-- 先写能跑通的单元测试或手工验证思路；HTTP 测试下一步再加。
+回家后按这个顺序：
 
-写完把签发相关代码和 `go test ./...` 结果发过来。
+1. 自己能讲清：`MapClaims`、`HS256`、`SignedString`、`exp`、空密钥检查各自干什么。
+2. 尽量不看补全，自己重写一版 `GenerateToken`（可对照现文件）。
+3. 再做：`config.Load` 读取 `JWT_SECRET` → `main` 里 `auth.NewJWT` → `POST /users/login` 成功响应增加 `token`。
+4. 然后再考虑鉴权中间件。
+
+本地 `.env` 增加 `JWT_SECRET`（勿提交）。验证：`go test ./internal/auth/` 与之后的 `go test ./...`。
 
 ## 跨设备与跨 Agent 续接
 
