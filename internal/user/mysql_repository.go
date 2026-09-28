@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 type MySQLRepository struct {
@@ -37,6 +39,10 @@ func (r *MySQLRepository) Create(ctx context.Context, username, passwordHash str
 	`
 	result, err := r.db.ExecContext(ctx, query, username, passwordHash)
 	if err != nil {
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+			return User{}, ErrUsernameTaken
+		}
 		return User{}, err
 	}
 	id, err := result.LastInsertId()

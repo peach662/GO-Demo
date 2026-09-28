@@ -69,6 +69,8 @@
 - [x] 实现 `Create`：插入 `username` 和 `password_hash`，用 `LastInsertId` 填入返回的 `User.ID`。
 - [x] `TestMySQLRepositoryCreate` 调用 `repo.Create` 创建用户，断言 `ID > 0`、用户名和密码哈希一致，再用 `GetByUsername` 确认库中记录与返回的 `ID` 相同。测试结束后按用户名删除。
 - [x] 同一测试里第二次用相同用户名 `Create`，确认返回 MySQL 错误号 `1062`（唯一索引 `uk_users_username`）。
+- [x] 定义 `user.ErrUsernameTaken`。`Create` 在插入遇到 MySQL `1062` 时返回它，其他数据库错误原样返回。
+- [x] `TestMySQLRepositoryCreate` 用 `errors.Is(err, ErrUsernameTaken)` 判断用户名冲突。`go test ./internal/user/` 通过。
 
 ## 最近验证
 
@@ -203,6 +205,14 @@ go test ./internal/user/
 
 结果：`ok awesomeProject/internal/user`。`TestMySQLRepositoryCreate` 覆盖了成功创建和重复用户名 `1062`。
 
+用户已确认 `Create` 将 `1062` 转成 `ErrUsernameTaken` 后：
+
+```powershell
+go test ./internal/user/
+```
+
+结果再次通过。
+
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
@@ -237,14 +247,16 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-把用户名冲突从 MySQL 错误号，收成仓库自己的错误。
+新增 `internal/user/service.go`。不要改 Repository 的 SQL。
 
 要求：
 
-- 在 `internal/user` 里定义 `var ErrUsernameTaken = errors.New("username taken")`，可以放在 `repository.go` 或单独的 `errors.go`。
-- 修改 `MySQLRepository.Create`：插入失败时，如果是 MySQL `1062`，返回 `ErrUsernameTaken`；其他错误仍原样返回。
-- 测试里把 `mysql.MySQLError` / `1062` 的判断改成 `errors.Is(err, ErrUsernameTaken)`。
-- 成功创建的路径不要改。
+- `Service` 保存 `Repository` 接口，用 `NewService(repo Repository) *Service` 构造。
+- 增加 `Register(ctx, username, password string) (User, error)`。
+- 用户名为空时返回一个明确错误，例如 `ErrInvalidUsername`。
+- 用 `bcrypt.GenerateFromPassword` 把明文密码变成哈希，再调用 `repo.Create`。
+- `repo.Create` 返回的错误原样返回，这样重复用户名仍然是 `ErrUsernameTaken`。
+- 写 `service_test.go`，用假仓库，不要连 MySQL。覆盖：空用户名失败、注册成功时存进去的是哈希而不是明文、重复用户名得到 `ErrUsernameTaken`。
 
 写完运行：
 
@@ -252,7 +264,7 @@ MySQL（服务器 124.221.130.183:33603）
 go test ./internal/user/
 ```
 
-把改动和结果发过来。
+把文件内容和结果发过来。
 
 ## 跨设备与跨 Agent 续接
 
