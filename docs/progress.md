@@ -71,6 +71,9 @@
 - [x] 同一测试里第二次用相同用户名 `Create`，确认返回 MySQL 错误号 `1062`（唯一索引 `uk_users_username`）。
 - [x] 定义 `user.ErrUsernameTaken`。`Create` 在插入遇到 MySQL `1062` 时返回它，其他数据库错误原样返回。
 - [x] 项目级安装 TuTor（`.agents/skills/tutor` 与 `.cursor/skills/tutor`）和 cc-skills-golang（`.cursor/skills/golang-*`）。`npx skills add --all` 会往很多 Agent 目录复制，已删掉 `.claude` 和 `agent` 里的重复副本。
+- [x] 定义 `user.ErrInvalidUsername`。
+- [x] 新增 `user.Service` 和 `Register`：空用户名直接失败；bcrypt 哈希明文密码后再调用 `repo.Create`。
+- [x] `TestServiceRegister` 使用假仓库：成功注册存的是哈希、空用户名返回 `ErrInvalidUsername`、重复用户名返回 `ErrUsernameTaken`。`go test ./internal/user/` 通过。
 
 ## 最近验证
 
@@ -213,6 +216,14 @@ go test ./internal/user/
 
 结果再次通过。
 
+用户已确认 `Register` 假仓库测试：
+
+```powershell
+go test ./internal/user/
+```
+
+结果：`ok awesomeProject/internal/user`（约 2.8s）。覆盖成功注册、空用户名和重复用户名。
+
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
@@ -238,7 +249,7 @@ awesome-project-mysql   mysql:8.4   Up (healthy)
 ```text
 Gin Handler
     |
-Todo Service
+Todo Service / User Service
     |
 Todo Repository / User Repository
     |
@@ -247,24 +258,15 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-新增 `internal/user/service.go`。不要改 Repository 的 SQL。
+给 `Register` 拒绝空密码。不要改仓库 SQL。
 
 要求：
 
-- `Service` 保存 `Repository` 接口，用 `NewService(repo Repository) *Service` 构造。
-- 增加 `Register(ctx, username, password string) (User, error)`。
-- 用户名为空时返回一个明确错误，例如 `ErrInvalidUsername`。
-- 用 `bcrypt.GenerateFromPassword` 把明文密码变成哈希，再调用 `repo.Create`。
-- `repo.Create` 返回的错误原样返回，这样重复用户名仍然是 `ErrUsernameTaken`。
-- 写 `service_test.go`，用假仓库，不要连 MySQL。覆盖：空用户名失败、注册成功时存进去的是哈希而不是明文、重复用户名得到 `ErrUsernameTaken`。
+- 在 `errors.go` 增加 `ErrInvalidPassword`。
+- `password == ""` 时返回这个错误，不要生成哈希。
+- 在 `TestServiceRegister` 里加一条：用户名有效、密码为空，得到 `ErrInvalidPassword`。
 
-写完运行：
-
-```powershell
-go test ./internal/user/
-```
-
-把文件内容和结果发过来。
+写完运行 `go test ./internal/user/`，把结果发过来。
 
 ## 跨设备与跨 Agent 续接
 
