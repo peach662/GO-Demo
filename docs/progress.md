@@ -84,6 +84,7 @@
 - [x] 新增 `ErrInvalidCredentials` 和 `Service.Login`：不存在用户与密码错误都返回同一错误；用 `bcrypt.CompareHashAndPassword` 校验。
 - [x] `TestServiceLogin` 覆盖成功登录、错误密码、不存在用户。`go test ./...` 通过。
 - [x] 新增 `user.LoginRequest` 与 `POST /users/login`：`ErrInvalidCredentials` → 401；空用户名/空密码 → 400；成功返回用户。`go test ./...` 通过。
+- [x] 新增 `TestLoginRoute`：先注册再登录断言 200 与敏感字段不泄露；错密码断言 401。`go test . -run TestLoginRoute` 通过。
 
 ## 最近验证
 
@@ -282,6 +283,14 @@ go test ./...
 
 结果：根包、`internal/todo`、`internal/user` 均通过。
 
+用户已确认登录 HTTP 测试后：
+
+```powershell
+go test . -run TestLoginRoute
+```
+
+结果：`ok awesomeProject`。覆盖成功登录与错密码 401。
+
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
@@ -316,17 +325,16 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-给 `POST /users/login` 写 HTTP 测试（对照 `TestRegisterRoute`）。
+开始 JWT：登录成功后发 token（先不做鉴权中间件）。
 
 要求：
 
-- 用 `newTestUserService`：可预置带 `PasswordHash` 的用户，或先 `Register` 再登录（HTTP 里先调注册再调登录也可以）。
-- 成功：`POST /users/login` 断言 200，响应含用户名，不含明文密码和 `password_hash`。
-- 失败：密码错误或不存在用户，断言 HTTP **401**。
+- 选一个常用 JWT 库（例如 `github.com/golang-jwt/jwt/v5`），用 `go get` 加入依赖。
+- 增加签发函数：输入用户 ID（和可选用户名），用 HMAC 密钥生成 token；密钥从环境变量读取（例如 `JWT_SECRET`），先不要硬编码进仓库。
+- 改 `POST /users/login`：成功时响应里除了用户，再带上 `token` 字段。
+- 先写能跑通的单元测试或手工验证思路；HTTP 测试下一步再加。
 
-注意：若预置用户，`PasswordHash` 必须是 bcrypt 哈希（明文 `"secret"` 当哈希会比对失败）。最简单是测试里先 `POST /users/register`，再 `POST /users/login`。
-
-写完运行 `go test . -run 'TestLogin'`，把测试和结果发过来。
+写完把签发相关代码和 `go test ./...` 结果发过来。
 
 ## 跨设备与跨 Agent 续接
 

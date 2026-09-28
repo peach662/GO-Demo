@@ -426,3 +426,59 @@ func TestUpdateTodoInvalidTransitionRoute(t *testing.T) {
 		t.Errorf("expected message %q, got %q", "非法状态流转", response.Message)
 	}
 }
+
+func TestLoginRoute(t *testing.T) {
+	todoService := newTestService(nil)
+	userService := newTestUserService(nil)
+	router := newRouter(todoService, userService)
+	reqBody := `{"username":"alice","password":"secret"}`
+	req := httptest.NewRequest(http.MethodPost, "/users/register", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, "alice") {
+		t.Fatalf("expected body %q, got %q", "alice", body)
+	}
+	if strings.Contains(body, "secret") {
+		t.Fatalf("expected body %q, got %q", "secret", body)
+	}
+	if strings.Contains(body, "password_hash") {
+		t.Fatalf("expected body %q, got %q", "password_hash", body)
+	}
+	req = httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+	body = recorder.Body.String()
+	if !strings.Contains(body, "alice") {
+		t.Fatalf("expected body %q, got %q", "alice", body)
+	}
+	if strings.Contains(body, "secret") {
+		t.Fatalf("expected body %q, got %q", "secret", body)
+	}
+	if strings.Contains(body, "password_hash") {
+		t.Fatalf("expected body %q, got %q", "password_hash", body)
+	}
+	reqBody = `{"username":"alice","password":"123"}`
+	req = httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusUnauthorized {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusUnauthorized)
+	}
+	body = recorder.Body.String()
+	if !strings.Contains(body, "用户名或密码错误") {
+		t.Fatalf("expected body %q, got %q", "用户名或密码错误", body)
+	}
+}
