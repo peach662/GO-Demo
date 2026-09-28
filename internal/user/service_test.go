@@ -64,9 +64,17 @@ func TestServiceRegister(t *testing.T) {
 	if !errors.Is(err, ErrInvalidUsername) {
 		t.Fatalf("expected ErrInvalidUsername, got %v", err)
 	}
+	_, err = service.Register(context.Background(), "testuser", "")
+	if !errors.Is(err, ErrInvalidPassword) {
+		t.Fatalf("expected ErrInvalidPassword, got %v", err)
+	}
 	_, err = service.Register(context.Background(), "testuser", "password")
 	if !errors.Is(err, ErrUsernameTaken) {
 		t.Fatalf("expected ErrUsernameTaken, got %v", err)
+	}
+	_, err = service.Register(context.Background(), "testuser", "")
+	if !errors.Is(err, ErrInvalidPassword) {
+		t.Fatalf("expected ErrInvalidPassword, got %v", err)
 	}
 
 }

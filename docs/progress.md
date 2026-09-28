@@ -74,6 +74,7 @@
 - [x] 定义 `user.ErrInvalidUsername`。
 - [x] 新增 `user.Service` 和 `Register`：空用户名直接失败；bcrypt 哈希明文密码后再调用 `repo.Create`。
 - [x] `TestServiceRegister` 使用假仓库：成功注册存的是哈希、空用户名返回 `ErrInvalidUsername`、重复用户名返回 `ErrUsernameTaken`。`go test ./internal/user/` 通过。
+- [x] `Register` 拒绝空密码，返回 `ErrInvalidPassword`。测试覆盖空密码。`go test ./internal/user/` 通过。
 
 ## 最近验证
 
@@ -224,6 +225,14 @@ go test ./internal/user/
 
 结果：`ok awesomeProject/internal/user`（约 2.8s）。覆盖成功注册、空用户名和重复用户名。
 
+空密码校验后再次确认：
+
+```powershell
+go test ./internal/user/
+```
+
+结果：`ok awesomeProject/internal/user`。
+
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
@@ -258,15 +267,11 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-给 `Register` 拒绝空密码。不要改仓库 SQL。
+新增 `internal/user/register_request.go`。先不要改 `main.go`。
 
-要求：
+对照 `internal/todo/create_request.go`：定义一个结构体，字段是 `Username` 和 `Password`，带 `json` 和 `binding:"required"`。
 
-- 在 `errors.go` 增加 `ErrInvalidPassword`。
-- `password == ""` 时返回这个错误，不要生成哈希。
-- 在 `TestServiceRegister` 里加一条：用户名有效、密码为空，得到 `ErrInvalidPassword`。
-
-写完运行 `go test ./internal/user/`，把结果发过来。
+写完把文件内容发过来。
 
 ## 跨设备与跨 Agent 续接
 

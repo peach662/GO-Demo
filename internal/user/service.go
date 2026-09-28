@@ -19,6 +19,9 @@ func (s *Service) Register(ctx context.Context, username, password string) (User
 	if username == "" {
 		return User{}, ErrInvalidUsername
 	}
+	if password == "" {
+		return User{}, ErrInvalidPassword
+	}
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return User{}, err
