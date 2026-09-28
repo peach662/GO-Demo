@@ -4,6 +4,7 @@ import (
 	"awesomeProject/internal/config"
 	"awesomeProject/internal/database"
 	"awesomeProject/internal/todo"
+	"awesomeProject/internal/user"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"strconv"
@@ -28,16 +29,67 @@ func main() {
 
 	repo := todo.NewMySQLRepository(db)
 	service := todo.NewService(repo)
-	r := newRouter(service)
+	userRepo := user.NewMySQLRepository(db)
+	userService := user.NewService(userRepo)
 
+	r := newRouter(service, userService)
 	if err := r.Run(":9090"); err != nil {
 		panic(err)
 	}
 }
 
-func newRouter(service *todo.Service) *gin.Engine {
+func newRouter(service *todo.Service, userService *user.Service) *gin.Engine {
 	r := gin.Default()
 	// ... (路由定义)
+	r.POST("/users/register", func(c *gin.Context) {
+		var req user.RegisterRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{
+				"code":    400,
+				"message": "请求参数错误",
+				"data":    nil,
+			})
+			return
+		}
+		registered, err := userService.Register(c.Request.Context(), req.Username, req.Password)
+		if errors.Is(err, user.ErrUsernameTaken) {
+			c.JSON(400, gin.H{
+				"code":    400,
+				"message": "用户名已存在",
+				"data":    nil,
+			})
+			return
+		}
+		if errors.Is(err, user.ErrInvalidPassword) {
+			c.JSON(400, gin.H{
+				"code":    400,
+				"message": "密码不能为空",
+				"data":    nil,
+			})
+			return
+		}
+		if errors.Is(err, user.ErrInvalidUsername) {
+			c.JSON(400, gin.H{
+				"code":    400,
+				"message": "用户名不能为空",
+				"data":    nil,
+			})
+			return
+		}
+		if err != nil {
+			c.JSON(500, gin.H{
+				"code":    500,
+				"message": "服务内部错误",
+				"data":    nil,
+			})
+			return
+		}
+		c.JSON(200, gin.H{
+			"code":    0,
+			"message": "ok",
+			"data":    registered,
+		})
+	})
 	r.GET("/todos", func(c *gin.Context) {
 		items, err := service.List(c.Request.Context())
 		if err != nil {

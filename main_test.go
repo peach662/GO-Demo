@@ -2,6 +2,7 @@ package main
 
 import (
 	"awesomeProject/internal/todo"
+	"awesomeProject/internal/user"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -60,7 +61,7 @@ func TestHealthRoute(t *testing.T) {
 		{ID: 3, Title: "Deploy to production", Status: todo.StatusPending},
 	})
 
-	router := newRouter(service)
+	router := newRouter(service, user.NewService(nil))
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	recorder := httptest.NewRecorder()
@@ -81,7 +82,7 @@ func TestGetTodosRoute(t *testing.T) {
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
 
-	router := newRouter(service)
+	router := newRouter(service, user.NewService(nil))
 	req := httptest.NewRequest(http.MethodGet, "/todos", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
@@ -119,7 +120,7 @@ func TestGetTodoNotFoundRoute(t *testing.T) {
 		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
-	router := newRouter(service)
+	router := newRouter(service, user.NewService(nil))
 	req := httptest.NewRequest(http.MethodGet, "/todos/999", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
@@ -149,7 +150,7 @@ func TestCreateTodoRoute(t *testing.T) {
 		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
-	router := newRouter(service)
+	router := newRouter(service, user.NewService(nil))
 	reqBody := `{"title":"Write HTTP tests"}`
 
 	req := httptest.NewRequest(http.MethodPost, "/todos", strings.NewReader(reqBody))
@@ -197,7 +198,7 @@ func TestCreateTodoValidationError(t *testing.T) {
 		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
-	router := newRouter(service)
+	router := newRouter(service, user.NewService(nil))
 	reqBody := `{}`
 	req := httptest.NewRequest(http.MethodPost, "/todos", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -238,7 +239,7 @@ func TestUpdateTodoStatusRoute(t *testing.T) {
 		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
-	router := newRouter(service)
+	router := newRouter(service, user.NewService(nil))
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/1", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -286,7 +287,7 @@ func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
 		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
 	})
-	router := newRouter(service)
+	router := newRouter(service, user.NewService(nil))
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/999", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -323,7 +324,7 @@ func TestUpdateTodoInvalidTransitionRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Completed todo", Status: todo.StatusCompleted},
 	})
-	router := newRouter(service)
+	router := newRouter(service, user.NewService(nil))
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/1", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")

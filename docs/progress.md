@@ -75,6 +75,10 @@
 - [x] 新增 `user.Service` 和 `Register`：空用户名直接失败；bcrypt 哈希明文密码后再调用 `repo.Create`。
 - [x] `TestServiceRegister` 使用假仓库：成功注册存的是哈希、空用户名返回 `ErrInvalidUsername`、重复用户名返回 `ErrUsernameTaken`。`go test ./internal/user/` 通过。
 - [x] `Register` 拒绝空密码，返回 `ErrInvalidPassword`。测试覆盖空密码。`go test ./internal/user/` 通过。
+- [x] 新增 `user.RegisterRequest`（`username`、`password`，`binding:"required"`）。
+- [x] `main` 创建 User Repository/Service，`newRouter` 接收两个 Service。
+- [x] 增加 `POST /users/register`：绑定 JSON；`ErrUsernameTaken` / `ErrInvalidPassword` / `ErrInvalidUsername` 返回 400；其它错误 500；成功返回用户（不含密码哈希）。
+- [x] `main_test.go` 中所有 `newRouter` 调用补上 `user.NewService(nil)`。`go test ./...` 通过。
 
 ## 最近验证
 
@@ -233,6 +237,14 @@ go test ./internal/user/
 
 结果：`ok awesomeProject/internal/user`。
 
+用户已确认注册 HTTP 接入后：
+
+```powershell
+go test ./...
+```
+
+结果：根包、`internal/todo`、`internal/user` 均通过。
+
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
@@ -267,11 +279,15 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-新增 `internal/user/register_request.go`。先不要改 `main.go`。
+给 `POST /users/register` 写一条 HTTP 测试。对照 `main_test.go` 里已有的 `POST /todos` 测试。
 
-对照 `internal/todo/create_request.go`：定义一个结构体，字段是 `Username` 和 `Password`，带 `json` 和 `binding:"required"`。
+要求：
 
-写完把文件内容发过来。
+- 用假用户仓库（和 `internal/user/service_test.go` 里类似），不要 `user.NewService(nil)`。
+- `POST /users/register`，JSON 带 `username` 和 `password`。
+- 断言状态码 200，响应里有用户名，且没有密码明文或 `password_hash`。
+
+写完运行 `go test .`，把测试函数和结果发过来。
 
 ## 跨设备与跨 Agent 续接
 
