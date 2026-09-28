@@ -15,6 +15,31 @@ type fakeRepository struct {
 	todos []todo.Todo
 }
 
+type fakeUserRepository struct {
+	users []user.User
+}
+
+func newTestUserService(initialUsers []user.User) *user.Service {
+	return user.NewService(&fakeUserRepository{
+		users: initialUsers,
+	})
+}
+
+func (r *fakeUserRepository) Create(ctx context.Context, username, passwordHash string) (user.User, error) {
+	id := len(r.users) + 1
+	item := user.User{ID: id, Username: username, PasswordHash: passwordHash}
+	r.users = append(r.users, item)
+	return item, nil
+}
+
+func (r *fakeUserRepository) GetByUsername(ctx context.Context, username string) (user.User, bool, error) {
+	for _, item := range r.users {
+		if item.Username == username {
+			return item, true, nil
+		}
+	}
+	return user.User{}, false, nil
+}
 func newTestService(initialTodos []todo.Todo) *todo.Service {
 	return todo.NewService(&fakeRepository{
 		todos: initialTodos,
@@ -53,6 +78,7 @@ func (r *fakeRepository) UpdateStatus(ctx context.Context, id int, status todo.S
 
 	return todo.Todo{}, false, nil
 }
+
 func TestHealthRoute(t *testing.T) {
 
 	service := newTestService([]todo.Todo{
@@ -142,6 +168,32 @@ func TestGetTodoNotFoundRoute(t *testing.T) {
 	}
 	if response.Message != "todo 不存在" {
 		t.Errorf("expected message %q, got %q", "todo 不存在", response.Message)
+	}
+}
+
+func TestRegisterRoute(t *testing.T) {
+	todoService := newTestService(nil)
+	userService := newTestUserService(nil)
+	router := newRouter(todoService, userService)
+	reqBody := `{"username":"alice","password":"secret"}`
+	req := httptest.NewRequest(http.MethodPost, "/users/register", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if status := recorder.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, "alice") {
+		t.Errorf("expected body %q, got %q", "alice", body)
+	}
+	if strings.Contains(body, "secret") {
+		t.Errorf("expected body %q, got %q", "secret", body)
+	}
+	if strings.Contains(body, "password_hash") {
+		t.Errorf("expected body %q, got %q", "password_hash", body)
 	}
 }
 
