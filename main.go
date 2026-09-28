@@ -41,6 +41,55 @@ func main() {
 func newRouter(service *todo.Service, userService *user.Service) *gin.Engine {
 	r := gin.Default()
 	// ... (路由定义)
+	r.POST("/users/login", func(c *gin.Context) {
+		var req user.LoginRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{
+				"code":    400,
+				"message": "请求参数错误",
+				"data":    nil,
+			})
+			return
+		}
+		login, err := userService.Login(c.Request.Context(), req.Username, req.Password)
+		if errors.Is(err, user.ErrInvalidCredentials) {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "用户名或密码错误",
+				"data":    nil,
+			})
+			return
+		}
+		if errors.Is(err, user.ErrInvalidUsername) {
+			c.JSON(400, gin.H{
+				"code":    400,
+				"message": "用户名不能为空",
+				"data":    nil,
+			})
+			return
+		}
+		if errors.Is(err, user.ErrInvalidPassword) {
+			c.JSON(400, gin.H{
+				"code":    400,
+				"message": "密码不能为空",
+				"data":    nil,
+			})
+			return
+		}
+		if err != nil {
+			c.JSON(500, gin.H{
+				"code":    500,
+				"message": "服务内部错误",
+				"data":    nil,
+			})
+			return
+		}
+		c.JSON(200, gin.H{
+			"code":    0,
+			"message": "ok",
+			"data":    login,
+		})
+	})
 	r.POST("/users/register", func(c *gin.Context) {
 		var req user.RegisterRequest
 		if err := c.ShouldBindJSON(&req); err != nil {

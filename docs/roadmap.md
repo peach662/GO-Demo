@@ -464,7 +464,8 @@ AI 可以帮助你：
 - [x] 状态机、`UpdateStatus` 事务与 `todo_status_logs`
 - [x] 用户表、注册 Service / HTTP 与相关测试
 - [x] `Service.Login`（密码校验，尚无 JWT）
-- [ ] `POST /users/login` HTTP（先不发 JWT）
+- [x] `POST /users/login` HTTP（先不发 JWT）
+- [ ] 登录 HTTP 测试（成功 200 / 失败 401）
 - [ ] JWT 鉴权与 Todo 归属当前用户
 - [ ] 将 Go 应用纳入 Docker Compose 启动
 - [ ] 增加 Redis 缓存
