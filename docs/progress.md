@@ -70,7 +70,7 @@
 - [x] `TestMySQLRepositoryCreate` 调用 `repo.Create` 创建用户，断言 `ID > 0`、用户名和密码哈希一致，再用 `GetByUsername` 确认库中记录与返回的 `ID` 相同。测试结束后按用户名删除。
 - [x] 同一测试里第二次用相同用户名 `Create`，确认返回 MySQL 错误号 `1062`（唯一索引 `uk_users_username`）。
 - [x] 定义 `user.ErrUsernameTaken`。`Create` 在插入遇到 MySQL `1062` 时返回它，其他数据库错误原样返回。
-- [x] `TestMySQLRepositoryCreate` 用 `errors.Is(err, ErrUsernameTaken)` 判断用户名冲突。`go test ./internal/user/` 通过。
+- [x] 项目级安装 TuTor（`.agents/skills/tutor` 与 `.cursor/skills/tutor`）和 cc-skills-golang（`.cursor/skills/golang-*`）。`npx skills add --all` 会往很多 Agent 目录复制，已删掉 `.claude` 和 `agent` 里的重复副本。
 
 ## 最近验证
 

@@ -17,3 +17,7 @@ coverage.out
 # OS files
 .DS_Store
 Thumbs.db
+
+# npx skills 可能再复制到这些目录，不要提交
+.claude/
+agent/

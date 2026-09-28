@@ -7,6 +7,8 @@
 - [学习路线](./roadmap.md)：6 个月能力路线、优先级与项目方向。
 - [学习进度](./progress.md)：当前完成内容、最近验证结果和下一步。
 
+项目 Skill 在 `.cursor/skills/`。学习时用 TuTor；Go 审查用 `golang-*`，不要一次手动点开全部。服务器中间件说明在 `server-middleware`。
+
 ## 维护规则
 
 每次完成一个小阶段后，更新 `progress.md`：
