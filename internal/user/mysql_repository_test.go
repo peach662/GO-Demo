@@ -5,11 +5,13 @@ import (
 	"awesomeProject/internal/database"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 )
 
@@ -112,6 +114,14 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 			t.Errorf("delete test user: %v", err)
 		}
 	})
+	_, err = repo.Create(ctx, username, passwordHash)
+	if err == nil {
+		t.Fatal("expected duplicate username to fail")
+	}
+	var mysqlErr *mysql.MySQLError
+	if !errors.As(err, &mysqlErr) || mysqlErr.Number != 1062 {
+		t.Fatalf("expected MySQL duplicate error 1062, got %v", err)
+	}
 
 	user, found, err := repo.GetByUsername(ctx, username)
 	if err != nil {

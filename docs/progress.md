@@ -68,6 +68,7 @@
 - [x] `TestMySQLRepositoryGetByUsername` 用真实 MySQL 覆盖查到用户和查不到用户。`go test ./internal/user/` 通过。
 - [x] 实现 `Create`：插入 `username` 和 `password_hash`，用 `LastInsertId` 填入返回的 `User.ID`。
 - [x] `TestMySQLRepositoryCreate` 调用 `repo.Create` 创建用户，断言 `ID > 0`、用户名和密码哈希一致，再用 `GetByUsername` 确认库中记录与返回的 `ID` 相同。测试结束后按用户名删除。
+- [x] 同一测试里第二次用相同用户名 `Create`，确认返回 MySQL 错误号 `1062`（唯一索引 `uk_users_username`）。
 
 ## 最近验证
 
@@ -200,7 +201,7 @@ EXPLAIN SELECT COUNT(*), MIN(from_status), MIN(to_status) FROM todo_status_logs 
 go test ./internal/user/
 ```
 
-结果：`ok awesomeProject/internal/user`。`TestMySQLRepositoryCreate` 通过。
+结果：`ok awesomeProject/internal/user`。`TestMySQLRepositoryCreate` 覆盖了成功创建和重复用户名 `1062`。
 
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
@@ -236,14 +237,14 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-给 `TestMySQLRepositoryCreate` 增加用户名冲突场景。不要改 `Create` 的实现。
+把用户名冲突从 MySQL 错误号，收成仓库自己的错误。
 
 要求：
 
-- 先 `Create` 一次，再对同一个 `username` 调用第二次 `Create`。
-- 第二次必须返回 `err != nil`。
-- 用 `errors.Is` 或 `mysql.MySQLError` 判断是唯一约束冲突（错误号 `1062`），不要把所有错误都当成通过。
-- 第一次创建的用户仍由现有 `t.Cleanup` 删除。
+- 在 `internal/user` 里定义 `var ErrUsernameTaken = errors.New("username taken")`，可以放在 `repository.go` 或单独的 `errors.go`。
+- 修改 `MySQLRepository.Create`：插入失败时，如果是 MySQL `1062`，返回 `ErrUsernameTaken`；其他错误仍原样返回。
+- 测试里把 `mysql.MySQLError` / `1062` 的判断改成 `errors.Is(err, ErrUsernameTaken)`。
+- 成功创建的路径不要改。
 
 写完运行：
 
@@ -251,7 +252,7 @@ MySQL（服务器 124.221.130.183:33603）
 go test ./internal/user/
 ```
 
-把测试改动和结果发过来。
+把改动和结果发过来。
 
 ## 跨设备与跨 Agent 续接
 
