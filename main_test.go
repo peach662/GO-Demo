@@ -26,10 +26,17 @@ func newTestUserService(initialUsers []user.User) *user.Service {
 }
 
 func (r *fakeUserRepository) Create(ctx context.Context, username, passwordHash string) (user.User, error) {
+
+	for _, existing  := range r.users {
+		if existing.Username == username {
+			return user.User{}, user.ErrUsernameTaken
+		}
+	}
 	id := len(r.users) + 1
 	item := user.User{ID: id, Username: username, PasswordHash: passwordHash}
+	
 	r.users = append(r.users, item)
-	return item, nil
+	return item, nil	
 }
 
 func (r *fakeUserRepository) GetByUsername(ctx context.Context, username string) (user.User, bool, error) {
@@ -197,6 +204,24 @@ func TestRegisterRoute(t *testing.T) {
 	}
 }
 
+func TestRegisterDuplicateRoute(t *testing.T) {
+
+	todoService := newTestService(nil)
+	userService := newTestUserService([]user.User{
+		{ID: 1, Username: "alice", PasswordHash: "secret"},
+	})
+	router := newRouter(todoService, userService)
+	reqBody := `{"username":"alice","password":"secret"}`
+	req := httptest.NewRequest(http.MethodPost, "/users/register", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if status := recorder.Code; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
+}
 func TestCreateTodoRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
 		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
