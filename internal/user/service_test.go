@@ -78,3 +78,37 @@ func TestServiceRegister(t *testing.T) {
 	}
 
 }
+
+func TestServiceLogin(t *testing.T) {
+	repo := &fakeRepository{}
+	service := NewService(repo)
+
+	result,err:=service.Register(context.Background(), "testuser", "password")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	result, err = service.Login(context.Background(), "testuser", "password")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if result.ID == 0 {
+			t.Fatalf("expected user ID to be non-zero")
+		}
+		if result.Username != "testuser" {
+			t.Fatalf("expected username to be testuser, got %s", result.Username)
+		}
+	
+		_, err = service.Login(context.Background(), "testuser", "wrongpassword")
+	
+		if !errors.Is(err, ErrInvalidCredentials) {
+			t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+		}
+
+		_, err = service.Login(context.Background(), "abcs", "password")
+
+		if !errors.Is(err, ErrInvalidCredentials) {
+			t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+		}
+		
+}

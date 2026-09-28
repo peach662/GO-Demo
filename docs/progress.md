@@ -81,6 +81,8 @@
 - [x] `main_test.go` 中所有 `newRouter` 调用补上 `user.NewService(nil)`。`go test ./...` 通过。
 - [x] 新增 `fakeUserRepository`、`newTestUserService` 和 `TestRegisterRoute`：`POST /users/register` 断言 200、响应含用户名、不含明文密码和 `password_hash`。`go test ./...` 通过。
 - [x] `fakeUserRepository.Create` 查重后返回 `ErrUsernameTaken`。新增 `TestRegisterDuplicateRoute`：预置同名用户再注册，断言 HTTP 400。`go test . -run TestRegisterDuplicateRoute` 通过。
+- [x] 新增 `ErrInvalidCredentials` 和 `Service.Login`：不存在用户与密码错误都返回同一错误；用 `bcrypt.CompareHashAndPassword` 校验。
+- [x] `TestServiceLogin` 覆盖成功登录、错误密码、不存在用户。`go test ./...` 通过。
 
 ## 最近验证
 
@@ -263,6 +265,14 @@ go test . -run TestRegisterDuplicateRoute
 
 结果：`ok awesomeProject`。覆盖 `ErrUsernameTaken` 映射为 400。
 
+用户已确认 `Login` 假仓库测试后：
+
+```powershell
+go test ./...
+```
+
+结果：根包、`internal/todo`、`internal/user` 均通过。`TestServiceLogin` 覆盖成功、错密码、不存在用户。
+
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
@@ -297,16 +307,15 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-在 `user.Service` 增加登录方法 `Login`（先不做 JWT，只校验密码）。
+给登录接 HTTP（仍先不发 JWT）。
 
 要求：
 
-- 用 `GetByUsername` 查用户；不存在或密码不对，都返回同一个错误（例如 `ErrInvalidCredentials`），不要区分“用户不存在”和“密码错误”。
-- 用 `bcrypt.CompareHashAndPassword` 比对明文密码和库里的 `PasswordHash`。
-- 成功则返回该 `User`（仍不含密码哈希进 JSON）。
-- 在 `service_test.go` 用假仓库测：成功登录、错误密码、不存在的用户。
+- 新增 `user.LoginRequest`（字段可与 `RegisterRequest` 相同：`username`、`password`，`binding:"required"`）。
+- 增加 `POST /users/login`：绑定 JSON，调用 `userService.Login`。
+- `ErrInvalidCredentials` 返回 401；`ErrInvalidUsername` / `ErrInvalidPassword` 返回 400；其它错误 500；成功返回用户 JSON（不含密码哈希）。
 
-写完运行 `go test ./internal/user -run TestServiceLogin`，把代码和结果发过来。
+写完先自己用 `go test ./...` 确认能编译通过，把 `main.go` 相关改动发过来（HTTP 测试下一步再写）。
 
 ## 跨设备与跨 Agent 续接
 
