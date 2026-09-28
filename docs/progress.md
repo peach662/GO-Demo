@@ -4,7 +4,7 @@
 
 当前阶段：企业级后端第 1 步，正在把内存版 Todo API 迁移到 MySQL。
 
-当前项目：`E:\projects\GO-Demo\GO-Demo`。MySQL 在服务器 `124.221.130.183:33603` 的库 `awesome_project`。
+当前项目：本仓库。本机路径 `D:\demo\awesomeProject`。MySQL 在服务器 `124.221.130.183:33603` 的库 `awesome_project`。
 
 ## 已完成
 
@@ -66,7 +66,8 @@
 - [x] 定义 `user.MySQLRepository` 和 `NewMySQLRepository`，保存 `*sql.DB` 连接池。
 - [x] 实现 `GetByUsername`：查到返回用户，`sql.ErrNoRows` 返回未找到，其他错误原样返回。
 - [x] `TestMySQLRepositoryGetByUsername` 用真实 MySQL 覆盖查到用户和查不到用户。`go test ./internal/user/` 通过。
-- [x] 实现 `Create`：插入 `username` 和 `password_hash`，用 `LastInsertId` 填入返回的 `User.ID`。还没有 `Create` 的数据库测试。
+- [x] 实现 `Create`：插入 `username` 和 `password_hash`，用 `LastInsertId` 填入返回的 `User.ID`。
+- [x] `TestMySQLRepositoryCreate` 调用 `repo.Create` 创建用户，断言 `ID > 0`、用户名和密码哈希一致，再用 `GetByUsername` 确认库中记录与返回的 `ID` 相同。测试结束后按用户名删除。
 
 ## 最近验证
 
@@ -193,6 +194,16 @@ EXPLAIN SELECT COUNT(*), MIN(from_status), MIN(to_status) FROM todo_status_logs 
 - `PRIMARY` 的 `Column_name` 是 `id`，`Non_unique` 为 0，主键不能重复。
 - `idx_todo_status_logs_todo_id` 的 `Column_name` 只有 `todo_id`，`Non_unique` 为 1，同一个任务可以有多条审计。`Cardinality` 为 0，是因为当前表里没有数据。
 
+用户已确认：
+
+```powershell
+go test ./internal/user/
+```
+
+结果：`ok awesomeProject/internal/user`。`TestMySQLRepositoryCreate` 通过。
+
+本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
+
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
 
 - 字段：`id`、`todo_id`、`from_status`、`to_status`、`created_at`
@@ -218,21 +229,21 @@ Gin Handler
     |
 Todo Service
     |
-Todo Repository
+Todo Repository / User Repository
     |
-MySQL
+MySQL（服务器 124.221.130.183:33603）
 ```
 
 ## 唯一下一步
 
-在 `internal/user/mysql_repository_test.go` 里新增 `TestMySQLRepositoryCreate`。不要改 `Create` 的实现。
+给 `TestMySQLRepositoryCreate` 增加用户名冲突场景。不要改 `Create` 的实现。
 
 要求：
 
-- 用 `repo.Create` 创建用户，不要自己写 `INSERT`。用户名和密码哈希都带上 `time.Now().UnixNano()`。
-- `t.Cleanup` 里按用户名删除这行。
-- 断言 `err == nil`，返回的 `ID` 大于 0，`Username` 和 `PasswordHash` 与传入的一致。
-- 再用 `GetByUsername` 查一次，确认数据库里确实有这个用户，而且 `ID` 相同。
+- 先 `Create` 一次，再对同一个 `username` 调用第二次 `Create`。
+- 第二次必须返回 `err != nil`。
+- 用 `errors.Is` 或 `mysql.MySQLError` 判断是唯一约束冲突（错误号 `1062`），不要把所有错误都当成通过。
+- 第一次创建的用户仍由现有 `t.Cleanup` 删除。
 
 写完运行：
 
@@ -240,7 +251,7 @@ MySQL
 go test ./internal/user/
 ```
 
-把测试函数和结果发过来。
+把测试改动和结果发过来。
 
 ## 跨设备与跨 Agent 续接
 

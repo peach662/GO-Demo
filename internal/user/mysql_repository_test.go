@@ -89,3 +89,45 @@ func TestMySQLRepositoryGetByUsername(t *testing.T) {
 		t.Fatalf("missing user found")
 	}
 }
+
+func TestMySQLRepositoryCreate(t *testing.T) {
+	db := openTestDB(t)
+	repo := NewMySQLRepository(db)
+
+	ctx := context.Background()
+	username := fmt.Sprintf("user-%d", time.Now().UnixNano())
+	passwordHash := fmt.Sprintf("password-%d", time.Now().UnixNano())
+
+	created, err := repo.Create(ctx, username, passwordHash)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	t.Cleanup(func() {
+		_, err := db.ExecContext(
+			context.Background(),
+			`DELETE FROM users WHERE username = ?`,
+			username,
+		)
+		if err != nil {
+			t.Errorf("delete test user: %v", err)
+		}
+	})
+
+	user, found, err := repo.GetByUsername(ctx, username)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if user.ID != created.ID {
+		t.Fatalf("user id mismatch: got %d, want %d", user.ID, created.ID)
+	}
+	if created.ID <= 0 {
+		t.Fatalf("expected created user id > 0")
+	}
+	if created.Username != username || created.PasswordHash != passwordHash {
+		t.Fatalf("created user mismatch: %+v", created)
+	}
+	if !found {
+		t.Fatalf("user not found")
+	}
+
+}
