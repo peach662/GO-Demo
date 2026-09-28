@@ -51,11 +51,12 @@ Go 企业级后端能力
 
 ```text
 本地地址：D:\demo\awesomeProject
-当前阶段：内存版 Todo API
-下一目标：接入 MySQL，演进为企业任务/工单系统
+当前阶段：MySQL 已接入；用户注册完成，正在做登录 HTTP（JWT 尚未开始）
+下一目标：登录接口 -> JWT 鉴权 -> 任务归属当前用户 -> Redis / Docker
+唯一下一步：以 docs/progress.md 为准（本文件是地图，不是执行清单）
 ```
 
-这个项目用于从零训练 Go 后端的核心能力。后续会在同一个项目里逐步加入 MySQL、Repository、JWT、Redis、RabbitMQ、Docker、监控和 AI 能力。
+这个项目用于从零训练 Go 后端的核心能力。后续会在同一个项目里逐步加入 JWT、Redis、RabbitMQ、Docker、监控和 AI 能力。MySQL、Repository、状态机与事务审计已落地。
 
 ### 后期 AI 参考源码：NexusAgent
 
@@ -93,13 +94,27 @@ observability    -> 追踪、指标、日志
 | --- | --- | --- |
 | 0 | 基础盘点 | 能运行项目、看懂错误、使用 Git/Linux 调试 |
 | 1 | Go 核心 | 能写可测试、并发安全的 Go 服务 |
-| 2 | 业务服务 | 能交付鉴权、校验、状态机、分页和错误处理 |
-| 3 | 数据一致性 | 能设计表、写事务、分析索引、实现幂等并接入缓存 |
-| 4 | 工程交付 | 能用 Docker 部署，并通过日志、TraceID 和指标排障 |
+| 2 | 数据层 | 能设计表、Repository、事务、索引与状态机审计 |
+| 3 | 鉴权与业务 API | 能交付注册/登录、JWT、资源归属、分页和错误处理 |
+| 4 | 缓存与工程交付 | 能接入 Redis，并用 Docker、日志、TraceID 排障 |
 | 5 | 消息与分布式 | 能处理 RabbitMQ、重试、死信、事务外盒和最终一致性 |
 | 6 | AI 应用 | 能完成模型 API、Tool Calling 和 RAG |
 | 7 | Agent/MCP | 能做受控 Workflow，理解 MCP 和评测 |
 | 8 | 求职准备 | 能讲清项目、做系统设计和回答核心八股 |
+
+**实际推进顺序（比阶段编号更重要）：**
+
+```text
+持久化 + Repository + 状态机/事务
+-> 注册 / 登录（先校验密码）
+-> JWT + 资源归属
+-> 分页 / Swagger（可穿插）
+-> Redis + Docker / 日志
+-> RabbitMQ
+-> AI
+```
+
+周计划只保留 `progress.md` 里的一个「唯一下一步」；本表用来看方向，不要一次塞满一个阶段的全部条目。
 
 ## 5. 阶段 0：基础盘点
 
@@ -131,7 +146,7 @@ observability    -> 追踪、指标、日志
 - `context.Context`
 - goroutine、channel、mutex、`sync.WaitGroup`
 - 单元测试、HTTP 测试和 `go test -race`
-- benchmark、`pprof` 和基本性能分析
+- （了解即可）benchmark / `pprof` 名词；真正练习放到工程排障阶段
 
 ### 项目产出
 
@@ -144,53 +159,56 @@ observability    -> 追踪、指标、日志
 - 单元测试和 HTTP 测试
 - 并发安全
 
-## 7. 阶段 2：企业级 Web 服务
+## 7. 阶段 2：数据层（MySQL / Repository / 状态机）
 
-### 推荐技术
-
-- Gin 或 Chi
-- REST API
-- middleware
-- JWT
-- OpenAPI/Swagger
+本阶段在「鉴权」之前完成。主线使用 `database/sql` 与参数化 SQL；GORM 列为 P2 了解即可，不作为当前默认。
 
 ### 必须掌握
 
-- Handler、Service、Repository 分层
-- 请求参数校验
-- 统一响应和错误码
-- 分页、排序和过滤
-- 登录、鉴权和 RBAC
-- 超时、取消和优雅关闭
-- 幂等接口设计
-- 状态机：合法流转、非法状态拦截、失败回退和操作审计
+- 表结构设计；主键、唯一索引和普通索引
+- Repository 接口与 MySQL 实现
+- 事务、隔离级别基础；`SELECT ... FOR UPDATE`
+- 状态机：合法流转、非法拦截、同状态幂等、变更审计
+- `EXPLAIN` 与索引是否被使用
+- 条件更新、唯一约束（如用户名）与应用层错误映射
 
-### 项目升级
+### 项目产出（本仓库已基本完成）
 
-将 Todo 服务升级为多用户任务系统：
+- MySQL 持久化 Todo
+- Repository 层与假仓库测试
+- `UpdateStatus` 事务 + `todo_status_logs`
+- `users` 表与注册链路
+
+## 8. 阶段 3：鉴权与业务 API
+
+### 推荐技术
+
+- Gin
+- REST API
+- middleware
+- JWT（登录校验通过后再学发 token）
+- OpenAPI/Swagger（可穿插，不阻塞主线）
+
+### 必须掌握
+
+- 注册 / 登录（先密码校验，再 JWT）
+- JWT 鉴权与「用户只能访问自己的任务」
+- 请求参数校验、统一响应和错误码
+- 分页、排序和过滤（在归属隔离之后补）
+- RBAC、超时/取消/优雅关闭、幂等：按需后置，不要一次全做
+
+### 项目升级顺序
 
 ```text
-用户注册/登录
--> JWT 鉴权
--> 用户只能访问自己的任务
--> 任务状态机与状态变更日志
+注册 + Login（无 JWT）
+-> POST 登录 HTTP
+-> JWT 鉴权中间件
+-> Todo 绑定 user_id / 只能看自己的
 -> 分页查询
--> Swagger 文档
--> 统一错误处理
+-> Swagger（可选）
 ```
 
-## 8. 阶段 3：数据库与缓存
-
-### MySQL（当前主线）
-
-- 表结构设计
-- 主键、唯一索引和普通索引
-- JOIN、聚合和分页
-- 事务和隔离级别
-- 行锁与死锁
-- `EXPLAIN` 和慢查询
-- GORM 与原生 SQL 的取舍
-- 条件更新、唯一约束和并发写入
+## 9. 阶段 4：缓存与工程交付
 
 ### Redis
 
@@ -198,19 +216,24 @@ observability    -> 追踪、指标、日志
 - TTL 和缓存读写
 - 缓存穿透、击穿、雪崩
 - Singleflight 与本地缓存
-- 分布式锁
-- 限流
+- 分布式锁与限流（按需）
 - 缓存和数据库一致性
+
+### 工程化（本阶段优先）
+
+- Docker / Docker Compose 纳入 Go 应用
+- 配置与环境变量（已有基础可加深）
+- 结构化日志、健康检查 / 就绪检查
+- 基础 TraceID；`pprof` 在出现性能问题再深挖
+- CI 自动测试
 
 ### 项目产出
 
-- 使用 MySQL 持久化 Todo
-- 增加 Repository 层
-- 增加事务测试
-- 为查询增加合理索引
-- 对热点查询增加 Redis 缓存
+- 热点查询加 Redis 缓存
+- 本地一键启动（中间件 + 应用）
+- 能用日志和健康检查做基本排障
 
-## 9. 阶段 4：消息队列与工程化
+## 10. 阶段 5：消息队列与分布式基础
 
 ### 消息队列
 
@@ -225,29 +248,7 @@ observability    -> 追踪、指标、日志
 - 最终一致性
 - 事务外盒（业务数据与本地消息同事务落库）
 
-### 工程化
-
-- Docker 和 Docker Compose
-- 配置文件与环境变量
-- 结构化日志
-- Prometheus 指标
-- OpenTelemetry 基础
-- 健康检查和就绪检查
-- CI 自动测试
-- Nginx 和基础部署
-- Kubernetes 基础概念
-
-### 故障排查能力
-
-能够回答并实践：
-
-- 接口突然变慢如何定位
-- 数据库慢查询如何定位
-- CPU、内存和 goroutine 暴涨如何排查
-- Redis 不可用时服务如何降级
-- 消息重复消费如何处理
-
-## 10. 阶段 5：分布式基础
+### 分布式基础
 
 - 超时、重试和退避
 - 限流、熔断和降级
@@ -259,7 +260,17 @@ observability    -> 追踪、指标、日志
 - CAP 和 BASE 的基本理解
 - 服务拆分的边界
 
-这一阶段重点不是背概念，而是能在项目中解释为什么这样设计。
+### 故障排查能力
+
+能够回答并实践：
+
+- 接口突然变慢如何定位
+- 数据库慢查询如何定位
+- CPU、内存和 goroutine 暴涨如何排查
+- Redis 不可用时服务如何降级
+- 消息重复消费如何处理
+
+这一阶段重点不是背概念，而是能在项目中解释为什么这样设计。Kubernetes 高级内容保持 P2。
 
 ## 11. 阶段 6：AI 应用工程
 
@@ -384,7 +395,7 @@ Go + DeepSeek API + Tool Calling + Workflow + MCP
 | 时间 | 重点 | 阶段产出 |
 | --- | --- | --- |
 | 第 1 个月 | Go、HTTP、测试、并发、Linux | 并发安全的 Todo API |
-| 第 2 个月 | MySQL、事务、索引、Repository、JWT | 多用户任务系统 |
+| 第 2 个月 | MySQL、事务、索引、Repository；再登录与 JWT | 多用户任务系统（数据层先于鉴权） |
 | 第 3 个月 | Redis、Docker、日志、健康检查 | 可一键启动的服务 |
 | 第 4 个月 | RabbitMQ、事务外盒、幂等、监控、pprof、故障排查 | 异步通知和排障记录 |
 | 第 5 个月 | DeepSeek API、结构化输出、Tool Calling、RAG | AI 企业知识库 |
@@ -443,14 +454,19 @@ AI 可以帮助你：
 
 最终要能完整讲清楚一个项目：需求、架构、数据流、异常、测试、部署和优化。
 
-## 18. 第一阶段行动清单
+## 18. 当前行动清单
+
+勾选状态与仓库进度对齐；**每日执行以 `progress.md` 的「唯一下一步」为准。**
 
 - [x] 完成内存版 Todo 的 Service、HTTP 和并发测试
-- [x] 使用 Docker Compose 启动 MySQL，并创建 `todos` 表
-- [ ] 将 Todo 接入 MySQL
-- [ ] 增加 Repository 层、事务和状态变更日志
-- [ ] 增加用户登录与 JWT
+- [x] 使用 Docker / 服务器 MySQL，并创建 `todos` 表
+- [x] 将 Todo 接入 MySQL（Repository、集成测试）
+- [x] 状态机、`UpdateStatus` 事务与 `todo_status_logs`
+- [x] 用户表、注册 Service / HTTP 与相关测试
+- [x] `Service.Login`（密码校验，尚无 JWT）
+- [ ] `POST /users/login` HTTP（先不发 JWT）
+- [ ] JWT 鉴权与 Todo 归属当前用户
 - [ ] 将 Go 应用纳入 Docker Compose 启动
 - [ ] 增加 Redis 缓存
-- [ ] 增加结构化日志和健康检查
+- [ ] 增加结构化日志和健康检查加深
 - [ ] 写一份项目架构说明
