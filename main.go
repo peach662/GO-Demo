@@ -8,6 +8,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"strconv"
+	"awesomeProject/internal/auth"
 )
 
 // TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
@@ -26,19 +27,20 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
+	jwtService := auth.NewJWT(cfg.JWTSecret)
 
 	repo := todo.NewMySQLRepository(db)
 	service := todo.NewService(repo)
 	userRepo := user.NewMySQLRepository(db)
 	userService := user.NewService(userRepo)
 
-	r := newRouter(service, userService)
+	r := newRouter(service, userService, jwtService)
 	if err := r.Run(":9090"); err != nil {
 		panic(err)
 	}
 }
 
-func newRouter(service *todo.Service, userService *user.Service) *gin.Engine {
+func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT) *gin.Engine {
 	r := gin.Default()
 	// ... (路由定义)
 	r.POST("/users/login", func(c *gin.Context) {
@@ -84,10 +86,22 @@ func newRouter(service *todo.Service, userService *user.Service) *gin.Engine {
 			})
 			return
 		}
+		token, err := jwtService.GenerateToken(login.ID)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"code":    500,
+				"message": "生成token失败",
+				"data":    nil,
+			})
+			return
+		}
 		c.JSON(200, gin.H{
 			"code":    0,
 			"message": "ok",
-			"data":    login,
+			"data":    gin.H{
+				"token": token,
+				"user":  login,
+			},
 		})
 	})
 	r.POST("/users/register", func(c *gin.Context) {

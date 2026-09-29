@@ -51,8 +51,8 @@ Go 企业级后端能力
 
 ```text
 本地地址：D:\demo\awesomeProject
-当前阶段：MySQL 已接入；用户注册完成，正在做登录 HTTP（JWT 尚未开始）
-下一目标：登录接口 -> JWT 鉴权 -> 任务归属当前用户 -> Redis / Docker
+当前阶段：登录已返回 JWT；下一步鉴权中间件
+下一目标：JWT 中间件 -> 任务归属当前用户 -> Redis / Docker
 唯一下一步：以 docs/progress.md 为准（本文件是地图，不是执行清单）
 ```
 
@@ -466,9 +466,9 @@ AI 可以帮助你：
 - [x] `Service.Login`（密码校验，尚无 JWT）
 - [x] `POST /users/login` HTTP（先不发 JWT）
 - [x] 登录 HTTP 测试（成功 200 / 失败 401）
-- [~] JWT：`internal/auth/jwt.go` 签发草稿已有（AI 辅助，**未掌握**）；尚未接入登录与中间件
-- [ ] `config` 读 `JWT_SECRET`，登录成功返回 `token`
-- [ ] JWT 鉴权中间件与 Todo 归属当前用户
+- [x] `config` 读 `JWT_SECRET`；登录成功返回 `token`（签发已接入）
+- [ ] JWT 鉴权中间件（Parse + Bearer + Context）
+- [ ] Todo 归属当前用户
 - [ ] 将 Go 应用纳入 Docker Compose 启动
 - [ ] 增加 Redis 缓存
 - [ ] 增加结构化日志和健康检查加深
