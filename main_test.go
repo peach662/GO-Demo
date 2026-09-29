@@ -48,21 +48,37 @@ func (r *fakeUserRepository) GetByUsername(ctx context.Context, username string)
 	}
 	return user.User{}, false, nil
 }
+
+const testTodoOwnerID = 1
+
 func newTestService(initialTodos []todo.Todo) *todo.Service {
 	return todo.NewService(&fakeRepository{
 		todos: initialTodos,
 	})
 }
 
-func (r *fakeRepository) List(ctx context.Context) ([]todo.Todo, error) {
-	result := make([]todo.Todo, len(r.todos))
-	copy(result, r.todos)
+func bearerToken(t *testing.T, jwtService *auth.JWT, userID int) string {
+	t.Helper()
+	token, err := jwtService.GenerateToken(userID)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+	return token
+}
+
+func (r *fakeRepository) List(ctx context.Context, userID int) ([]todo.Todo, error) {
+	result := make([]todo.Todo, 0)
+	for _, item := range r.todos {
+		if item.UserID == userID {
+			result = append(result, item)
+		}
+	}
 	return result, nil
 }
 
-func (r *fakeRepository) GetByID(ctx context.Context, id int) (todo.Todo, bool, error) {
+func (r *fakeRepository) GetByID(ctx context.Context, id int, userID int) (todo.Todo, bool, error) {
 	for _, t := range r.todos {
-		if t.ID == id {
+		if t.ID == id && t.UserID == userID {
 			return t, true, nil
 		}
 	}
@@ -76,9 +92,9 @@ func (r *fakeRepository) Create(ctx context.Context, title string, userID int) (
 	return t, nil
 }
 
-func (r *fakeRepository) UpdateStatus(ctx context.Context, id int, status todo.Status) (todo.Todo, bool, error) {
+func (r *fakeRepository) UpdateStatus(ctx context.Context, id int, status todo.Status, userID int) (todo.Todo, bool, error) {
 	for i := range r.todos {
-		if r.todos[i].ID == id {
+		if r.todos[i].ID == id && r.todos[i].UserID == userID {
 			r.todos[i].Status = status
 			return r.todos[i], true, nil
 		}
@@ -112,12 +128,14 @@ func TestHealthRoute(t *testing.T) {
 
 func TestGetTodosRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
-		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending, UserID: testTodoOwnerID},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
+		{ID: 3, Title: "Someone else", Status: todo.StatusPending, UserID: 99},
 	})
-
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	jwtService := auth.NewJWT("test")
+	router := newRouter(service, user.NewService(nil), jwtService)
 	req := httptest.NewRequest(http.MethodGet, "/todos", nil)
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
 
@@ -151,11 +169,13 @@ func TestGetTodosRoute(t *testing.T) {
 
 func TestGetTodoNotFoundRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
-		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending, UserID: testTodoOwnerID},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: 99},
 	})
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
-	req := httptest.NewRequest(http.MethodGet, "/todos/999", nil)
+	jwtService := auth.NewJWT("test")
+	router := newRouter(service, user.NewService(nil), jwtService)
+	req := httptest.NewRequest(http.MethodGet, "/todos/2", nil)
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
 
@@ -225,14 +245,15 @@ func TestRegisterDuplicateRoute(t *testing.T) {
 }
 func TestCreateTodoRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
-		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending, UserID: testTodoOwnerID},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	jwtService := auth.NewJWT("test")
+	router := newRouter(service, user.NewService(nil), jwtService)
 	reqBody := `{"title":"Write HTTP tests"}`
-
 	req := httptest.NewRequest(http.MethodPost, "/todos", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
 
@@ -245,9 +266,13 @@ func TestCreateTodoRoute(t *testing.T) {
 		Code int       `json:"code"`
 		Data todo.Todo `json:"data"`
 	}
+
 	err := json.Unmarshal(recorder.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if response.Data.UserID != testTodoOwnerID {
+		t.Errorf("expected user ID %d, got %d", testTodoOwnerID, response.Data.UserID)
 	}
 
 	if response.Data.ID != 3 {
@@ -262,7 +287,7 @@ func TestCreateTodoRoute(t *testing.T) {
 	if response.Data.Status != todo.StatusPending {
 		t.Errorf("Expected new todo status %q, got %q", todo.StatusPending, response.Data.Status)
 	}
-	items, err := service.List(context.Background())
+	items, err := service.List(context.Background(), testTodoOwnerID)
 	if err != nil {
 		t.Fatalf("list todos: %v", err)
 	}
@@ -273,13 +298,15 @@ func TestCreateTodoRoute(t *testing.T) {
 
 func TestCreateTodoValidationError(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
-		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending, UserID: testTodoOwnerID},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	jwtService := auth.NewJWT("test")
+	router := newRouter(service, user.NewService(nil), jwtService)
 	reqBody := `{}`
 	req := httptest.NewRequest(http.MethodPost, "/todos", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
 
@@ -302,7 +329,7 @@ func TestCreateTodoValidationError(t *testing.T) {
 		t.Errorf("expected message %q, got %q", "请求参数错误", response.Message)
 	}
 
-	items, err := service.List(context.Background())
+	items, err := service.List(context.Background(), testTodoOwnerID)
 	if err != nil {
 		t.Fatalf("list todos: %v", err)
 	}
@@ -311,16 +338,41 @@ func TestCreateTodoValidationError(t *testing.T) {
 	}
 }
 
+func TestCreateTodoUnauthorized(t *testing.T) {
+	service := newTestService([]todo.Todo{
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending, UserID: testTodoOwnerID},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
+	})
+	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	reqBody := `{"title":"Write HTTP tests"}`
+	req := httptest.NewRequest(http.MethodPost, "/todos", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusUnauthorized {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusUnauthorized)
+	}
+	items, err := service.List(context.Background(), testTodoOwnerID)
+	if err != nil {
+		t.Fatalf("list todos: %v", err)
+	}
+	if len(items) != 2 {
+		t.Errorf("expected 2 todos, got %d", len(items))
+	}
+}
 func TestUpdateTodoStatusRoute(t *testing.T) {
 
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
-		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending, UserID: testTodoOwnerID},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	jwtService := auth.NewJWT("test")
+	router := newRouter(service, user.NewService(nil), jwtService)
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/1", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
 
@@ -348,7 +400,7 @@ func TestUpdateTodoStatusRoute(t *testing.T) {
 		t.Errorf("expected code 0, got %d", response.Code)
 	}
 
-	stored, found, err := service.GetByID(context.Background(), 1)
+	stored, found, err := service.GetByID(context.Background(), 1, testTodoOwnerID)
 	if err != nil {
 		t.Fatalf("get todo: %v", err)
 	}
@@ -362,13 +414,15 @@ func TestUpdateTodoStatusRoute(t *testing.T) {
 
 func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Learn Go", Status: todo.StatusPending},
-		{ID: 2, Title: "Build a web app", Status: todo.StatusPending},
+		{ID: 1, Title: "Learn Go", Status: todo.StatusPending, UserID: testTodoOwnerID},
+		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	jwtService := auth.NewJWT("test")
+	router := newRouter(service, user.NewService(nil), jwtService)
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/999", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
 
@@ -389,7 +443,7 @@ func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
 	if response.Message != "todo 不存在" {
 		t.Errorf("expected message %q, got %q", "todo 不存在", response.Message)
 	}
-	items, err := service.List(context.Background())
+	items, err := service.List(context.Background(), testTodoOwnerID)
 	if err != nil {
 		t.Fatalf("list todos: %v", err)
 	}
@@ -400,12 +454,14 @@ func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
 
 func TestUpdateTodoInvalidTransitionRoute(t *testing.T) {
 	service := newTestService([]todo.Todo{
-		{ID: 1, Title: "Completed todo", Status: todo.StatusCompleted},
+		{ID: 1, Title: "Completed todo", Status: todo.StatusCompleted, UserID: testTodoOwnerID},
 	})
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	jwtService := auth.NewJWT("test")
+	router := newRouter(service, user.NewService(nil), jwtService)
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/1", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
 

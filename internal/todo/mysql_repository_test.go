@@ -77,7 +77,7 @@ func TestMySQLRepositoryList(t *testing.T) {
 
 	repo := NewMySQLRepository(db)
 
-	todos, err := repo.List(ctx)
+	todos, err := repo.List(ctx, 1)
 	if err != nil {
 		t.Fatalf("list todos: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestMySQLRepositoryGetByID(t *testing.T) {
 
 	repo := NewMySQLRepository(db)
 
-	item, found, err := repo.GetByID(ctx, int(id))
+	item, found, err := repo.GetByID(ctx, int(id), 1)
 	if err != nil {
 		t.Fatalf("get todo by ID: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestMySQLRepositoryGetByID(t *testing.T) {
 	if item.Title != title {
 		t.Errorf("expected title %q, got %q", title, item.Title)
 	}
-	_, found, err = repo.GetByID(ctx, 999999999)
+	_, found, err = repo.GetByID(ctx, 999999999, 1)
 
 	if err != nil {
 		t.Fatalf("get missing todo: %v", err)
@@ -164,6 +164,7 @@ func TestMySQLRepositoryGetByIDDatabaseError(t *testing.T) {
 
 	_, found, err := repo.GetByID(
 		context.Background(),
+		1,
 		1,
 	)
 
@@ -216,7 +217,7 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 		t.Errorf("expected UserID %d, got %d", testUserID, created.UserID)
 	}
 
-	item, found, err := repo.GetByID(ctx, created.ID)
+	item, found, err := repo.GetByID(ctx, created.ID, testUserID)
 	if err != nil {
 		t.Fatalf("get todo by ID: %v", err)
 	}
@@ -238,6 +239,7 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 }
 
 func TestMySQLRepositoryUpdateStatus(t *testing.T) {
+	const testUserID = 42
 	db := openTestDB(t)
 
 	ctx := context.Background()
@@ -248,7 +250,7 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 
 	repo := NewMySQLRepository(db)
 
-	created, err := repo.Create(ctx, title, 42)
+	created, err := repo.Create(ctx, title, testUserID)
 	if err != nil {
 		t.Fatalf("create todo: %v", err)
 	}
@@ -274,7 +276,7 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 
 	})
 
-	updated, found, err := repo.UpdateStatus(ctx, created.ID, StatusProcessing)
+	updated, found, err := repo.UpdateStatus(ctx, created.ID, StatusProcessing, testUserID)
 
 	if err != nil {
 		t.Fatalf("update todo status: %v", err)
@@ -312,7 +314,7 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 		t.Errorf("expected to status %q, got %q", StatusProcessing, toStatus)
 	}
 
-	updated, found, err = repo.UpdateStatus(ctx, created.ID, StatusProcessing)
+	updated, found, err = repo.UpdateStatus(ctx, created.ID, StatusProcessing, testUserID)
 	if err != nil {
 		t.Fatalf("update todo status: %v", err)
 	}
@@ -328,7 +330,7 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 	if updated.Title != title {
 		t.Errorf("expected title %q, got %q", title, updated.Title)
 	}
-	item, found, err := repo.GetByID(ctx, created.ID)
+	item, found, err := repo.GetByID(ctx, created.ID, testUserID)
 	if err != nil {
 		t.Fatalf("get todo by ID: %v", err)
 	}
@@ -358,7 +360,7 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 	if toStatusAgain != string(StatusProcessing) {
 		t.Errorf("expected to status %q, got %q", StatusProcessing, toStatusAgain)
 	}
-	_, found, err = repo.UpdateStatus(ctx, 999999999, StatusProcessing)
+	_, found, err = repo.UpdateStatus(ctx, 999999999, StatusProcessing, testUserID)
 	if err != nil {
 		t.Fatalf("update missing todo: %v", err)
 	}

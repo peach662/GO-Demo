@@ -92,6 +92,13 @@
 - [x] `AuthMiddleware`：Bearer 校验；失败统一 `code/message/data` 401；成功写入 `ContextUserIDKey`。
 - [x] `GET /users/me` 挂中间件，返回当前 `user_id`。登录/注册保持公开。`go test ./...` 通过。
 - [x] 新增 `TestMeRoute`：注册→登录解析 `data.token`→带 Bearer 访问 `/users/me` 断言 200/`user_id`；无 Header 断言 401。`go test . -run TestMeRoute` 通过。
+- [x] migration `005_add_user_id_to_todos.sql`：`todos.user_id BIGINT NULL` + 索引；已在服务器 MySQL 执行。
+- [x] `todo.Todo` 增加 `UserID *int`（JSON `user_id`）；`Create` 链路（repo/service/fake/测试）接收 `userID int`。
+- [x] `scanTodo` 用 `sql.NullInt64` 扫 `user_id`，避免历史 NULL 行 Scan 失败。
+- [x] `POST /todos` 挂 `AuthMiddleware`；从 Context 取 `userID` 并 `.(int)`；`Create` 使用真实 userID（不再写死 `0`）。
+- [x] HTTP 测试：`TestCreateTodoRoute` / `TestCreateTodoValidationError` 带 Bearer（`GenerateToken`）；新增 `TestCreateTodoUnauthorized`（无 Header → 401，列表不变）。`go test . -run 'TestCreateTodo'` 通过。
+- [x] `List` / `GetByID` / `UpdateStatus` 全链路带 `userID`：MySQL `WHERE user_id = ?`；Service 透传；HTTP 的 GET/PATCH 挂 `AuthMiddleware`。
+- [x] HTTP 测试：fake 按 `UserID` 过滤；GET/PATCH 带 Bearer；列表不含他人 Todo；他人 id 当 404。`go test ./internal/todo/ -count=1` 与 `go test . -count=1` 通过。
 
 ## 最近验证
 
@@ -358,18 +365,11 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-给 Todo 增加「归属当前用户」（先做迁移与模型，再改接口）。
+给历史 Todo 的 `user_id` 定规则：回填归属，或把列改为 `NOT NULL`（含新的 migration 与服务器执行）。
 
-要求：
+当前 `user_id` 仍允许 NULL，新写入已带登录用户；这一步是数据完整性，不是新接口。
 
-1. 新增 migration：`todos` 表增加 `user_id`（可先允许 NULL 或给历史数据默认值，再按你现有风格定 NOT NULL）。
-2. 在服务器 MySQL 执行该 migration。
-3. `todo.Todo` 增加 `UserID` 字段（JSON 可暴露 `user_id`）。
-4. 先让现有测试/编译尽量跟上字段变化（Repository 的 Scan/Insert 也要带上 `user_id`）。
-
-这一小步**先完成库表 + 模型 + Repository 读写字段**；创建时从 JWT 取 user_id、列表只查自己的，下一步再做。
-
-写完把 migration 和改动过的 todo 文件发过来，并说明是否已在服务器执行成功。
+写完说明 migration 是否已在服务器执行，以及旧行如何处理。
 
 ## 跨设备与跨 Agent 续接
 

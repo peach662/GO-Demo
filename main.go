@@ -172,8 +172,26 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			"data":    registered,
 		})
 	})
-	r.GET("/todos", func(c *gin.Context) {
-		items, err := service.List(c.Request.Context())
+	r.GET("/todos", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
+		userID, ok := c.Get(auth.ContextUserIDKey)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "未授权",
+				"data":    nil,
+			})
+			return
+		}
+		userIDInt, ok := userID.(int)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "用户ID必须是数字",
+				"data":    nil,
+			})
+			return
+		}
+		items, err := service.List(c.Request.Context(), userIDInt)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"code":    500,
@@ -189,7 +207,25 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			"data":    items,
 		})
 	})
-	r.GET("/todos/:id", func(c *gin.Context) {
+	r.GET("/todos/:id", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
+		userID, ok := c.Get(auth.ContextUserIDKey)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "未授权",
+				"data":    nil,
+			})
+			return
+		}
+		userIDInt, ok := userID.(int)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "用户ID必须是数字",
+				"data":    nil,
+			})
+			return
+		}
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			c.JSON(400, gin.H{
@@ -199,7 +235,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
-		item, found, err := service.GetByID(c.Request.Context(), id)
+		item, found, err := service.GetByID(c.Request.Context(), id, userIDInt)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"code":    500,
@@ -222,7 +258,25 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			"data":    item,
 		})
 	})
-	r.POST("/todos", func(c *gin.Context) {
+	r.POST("/todos",auth.AuthMiddleware(jwtService), func(c *gin.Context) {
+		userID, ok := c.Get(auth.ContextUserIDKey)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "未授权",
+				"data":    nil,
+			})
+			return
+		}
+		userIDInt,ok := userID.(int)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "用户ID必须是数字",
+				"data":    nil,
+			})
+			return
+		}
 		var req todo.CreateTodoRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(400, gin.H{
@@ -232,9 +286,9 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
+		
 
-		// TODO: take userID from JWT context once create route requires auth
-		newTodo, err := service.Create(c.Request.Context(), req.Title, 0)
+		newTodo, err := service.Create(c.Request.Context(), req.Title, userIDInt)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"code":    500,
@@ -249,8 +303,26 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			"data":    newTodo,
 		})
 	})
-	r.PATCH("/todos/:id", func(c *gin.Context) {
+	r.PATCH("/todos/:id", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
 
+		userID, ok := c.Get(auth.ContextUserIDKey)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "未授权",
+				"data":    nil,
+			})
+			return
+		}
+		userIDInt, ok := userID.(int)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "用户ID必须是数字",
+				"data":    nil,
+			})
+			return
+		}
 		var req todo.UpdateTodoStatusRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(400, gin.H{
@@ -270,7 +342,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
-		updatedTodo, found, err := service.UpdateStatus(c.Request.Context(), id, *req.Status)
+		updatedTodo, found, err := service.UpdateStatus(c.Request.Context(), id, *req.Status, userIDInt)
 		if err != nil {
 			if errors.Is(err, todo.ErrInvalidTransition) {
 				c.JSON(400, gin.H{

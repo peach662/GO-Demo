@@ -8,7 +8,7 @@ import (
 )
 
 type Config struct {
-	MySQLDSN string
+	MySQLDSN  string
 	JWTSecret string
 }
 
@@ -27,7 +27,7 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		MySQLDSN: dsn,
+		MySQLDSN:  dsn,
 		JWTSecret: jwtSecret,
 	}, nil
 }

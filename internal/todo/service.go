@@ -12,23 +12,23 @@ func NewService(repo Repository) *Service {
 	}
 }
 
-func (s *Service) List(ctx context.Context) ([]Todo, error) {
+func (s *Service) List(ctx context.Context, userID int) ([]Todo, error) {
 
-	return s.repo.List(ctx)
+	return s.repo.List(ctx, userID)
 
 }
 
-func (s *Service) GetByID(ctx context.Context, id int) (Todo, bool, error) {
+func (s *Service) GetByID(ctx context.Context, id int, userID int) (Todo, bool, error) {
 
-	return s.repo.GetByID(ctx, id)
+	return s.repo.GetByID(ctx, id, userID)
 }
 
 func (s *Service) Create(ctx context.Context, title string, userID int) (Todo, error) {
 	return s.repo.Create(ctx, title, userID)
 }
 
-func (s *Service) UpdateStatus(ctx context.Context, id int, status Status) (Todo, bool, error) {
-	current, found, err := s.repo.GetByID(ctx, id)
+func (s *Service) UpdateStatus(ctx context.Context, id int, status Status, userID int) (Todo, bool, error) {
+	current, found, err := s.repo.GetByID(ctx, id, userID)
 	if err != nil {
 		return Todo{}, false, err
 	}
@@ -38,5 +38,5 @@ func (s *Service) UpdateStatus(ctx context.Context, id int, status Status) (Todo
 	if !CanTransition(current.Status, status) {
 		return Todo{}, false, ErrInvalidTransition
 	}
-	return s.repo.UpdateStatus(ctx, id, status)
+	return s.repo.UpdateStatus(ctx, id, status, userID)
 }

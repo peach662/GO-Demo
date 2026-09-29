@@ -29,13 +29,14 @@ func scanTodo(scanner interface {
 	return item, nil
 }
 
-func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
+func (r *MySQLRepository) List(ctx context.Context, userID int) ([]Todo, error) {
 	const query = `
 		SELECT id, title, status, user_id
 		FROM todos
+		WHERE user_id = ?
 		ORDER BY id
 		`
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -54,10 +55,10 @@ func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
 	}
 	return todos, nil
 }
-func (r *MySQLRepository) GetByID(ctx context.Context, id int) (Todo, bool, error) {
-	const query = `SELECT id,title,status,user_id FROM todos WHERE id = ?`
+func (r *MySQLRepository) GetByID(ctx context.Context, id int, userID int) (Todo, bool, error) {
+	const query = `SELECT id,title,status,user_id FROM todos WHERE id = ? AND user_id = ?`
 
-	item, err := scanTodo(r.db.QueryRowContext(ctx, query, id))
+	item, err := scanTodo(r.db.QueryRowContext(ctx, query, id, userID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Todo{}, false, nil
@@ -95,6 +96,7 @@ func (r *MySQLRepository) UpdateStatus(
 	ctx context.Context,
 	id int,
 	status Status,
+	userID int,
 ) (Todo, bool, error) {
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -103,8 +105,8 @@ func (r *MySQLRepository) UpdateStatus(
 	}
 	defer tx.Rollback()
 
-	const selectQuery = `SELECT id,title,status,user_id FROM todos WHERE id = ? FOR UPDATE`
-	item, err := scanTodo(tx.QueryRowContext(ctx, selectQuery, id))
+	const selectQuery = `SELECT id,title,status,user_id FROM todos WHERE id = ? AND user_id = ? FOR UPDATE`
+	item, err := scanTodo(tx.QueryRowContext(ctx, selectQuery, id, userID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Todo{}, false, nil
@@ -114,8 +116,8 @@ func (r *MySQLRepository) UpdateStatus(
 	if item.Status == status {
 		return item, true, nil
 	}
-	const updateQuery = `UPDATE todos SET status = ? WHERE id = ?`
-	if _, err = tx.ExecContext(ctx, updateQuery, status, id); err != nil {
+	const updateQuery = `UPDATE todos SET status = ? WHERE id = ? AND user_id = ?`
+	if _, err = tx.ExecContext(ctx, updateQuery, status, id, userID); err != nil {
 		return Todo{}, false, err
 	}
 

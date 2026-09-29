@@ -9,15 +9,20 @@ type fakeRepository struct {
 	todos []Todo
 }
 
-func (f *fakeRepository) List(ctx context.Context) ([]Todo, error) {
-	result := make([]Todo, len(f.todos))
-	copy(result, f.todos)
+func (f *fakeRepository) List(ctx context.Context, userID int) ([]Todo, error) {
+
+	result := make([]Todo, 0)
+	for _, item := range f.todos {
+		if item.UserID == userID {
+			result = append(result, item)
+		}
+	}
 	return result, nil
 }
 
-func (f *fakeRepository) GetByID(ctx context.Context, id int) (Todo, bool, error) {
+func (f *fakeRepository) GetByID(ctx context.Context, id int, userID int) (Todo, bool, error) {
 	for _, item := range f.todos {
-		if item.ID == id {
+		if item.ID == id && item.UserID == userID {
 			return item, true, nil
 		}
 	}
@@ -39,9 +44,11 @@ func (f *fakeRepository) UpdateStatus(
 	ctx context.Context,
 	id int,
 	status Status,
+	userID int,
 ) (Todo, bool, error) {
+
 	for i := range f.todos {
-		if f.todos[i].ID == id {
+		if f.todos[i].ID == id && f.todos[i].UserID == userID {
 			f.todos[i].Status = status
 			return f.todos[i], true, nil
 		}
@@ -50,15 +57,16 @@ func (f *fakeRepository) UpdateStatus(
 }
 
 func TestServiceCreate(t *testing.T) {
+	const testUserID = 1
 	repo := &fakeRepository{
 		todos: []Todo{
-			{ID: 1, Title: "Learn Go", Status: StatusPending},
-			{ID: 2, Title: "Build a web app", Status: StatusPending},
+			{ID: 1, Title: "Learn Go", Status: StatusPending, UserID: testUserID},
+			{ID: 2, Title: "Build a web app", Status: StatusPending, UserID: testUserID},
 		},
 	}
 
 	service := NewService(repo)
-	created, err := service.Create(context.Background(), "Write tests", 7)
+	created, err := service.Create(context.Background(), "Write tests", testUserID)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -72,10 +80,10 @@ func TestServiceCreate(t *testing.T) {
 	if created.Status != StatusPending {
 		t.Errorf("Expected status %q, got %q", StatusPending, created.Status)
 	}
-	if created.UserID != 7 {
-		t.Errorf("Expected UserID 7, got %d", created.UserID)
+	if created.UserID != testUserID {
+		t.Errorf("Expected UserID %d, got %d", testUserID, created.UserID)
 	}
-	list, err := service.List(context.Background())
+	list, err := service.List(context.Background(), testUserID)
 	if err != nil {
 		t.Fatalf("list todos: %v", err)
 	}
@@ -87,16 +95,17 @@ func TestServiceCreate(t *testing.T) {
 }
 
 func TestServiceUpdateStatus(t *testing.T) {
+	const testUserID = 1
 	repo := &fakeRepository{
 		todos: []Todo{
-			{ID: 1, Title: "Learn Go", Status: StatusPending},
-			{ID: 2, Title: "Build a web app", Status: StatusPending},
+			{ID: 1, Title: "Learn Go", Status: StatusPending, UserID: testUserID},
+			{ID: 2, Title: "Build a web app", Status: StatusPending, UserID: testUserID},
 		},
 	}
 
 	service := NewService(repo)
 
-	updated, found, err := service.UpdateStatus(context.Background(), 1, StatusProcessing)
+	updated, found, err := service.UpdateStatus(context.Background(), 1, StatusProcessing, testUserID)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -106,7 +115,7 @@ func TestServiceUpdateStatus(t *testing.T) {
 	if updated.Status != StatusProcessing {
 		t.Errorf("Expected status %q, got %q", StatusProcessing, updated.Status)
 	}
-	stored, found, err := service.GetByID(context.Background(), 1)
+	stored, found, err := service.GetByID(context.Background(), 1, testUserID)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -116,7 +125,7 @@ func TestServiceUpdateStatus(t *testing.T) {
 	if stored.Status != StatusProcessing {
 		t.Errorf("expected stored todo status %q", StatusProcessing)
 	}
-	_, found, err = service.UpdateStatus(context.Background(), 999, StatusProcessing)
+	_, found, err = service.UpdateStatus(context.Background(), 999, StatusProcessing, testUserID)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -127,12 +136,13 @@ func TestServiceUpdateStatus(t *testing.T) {
 }
 
 func TestServiceRejectsInvalidStatusTransition(t *testing.T) {
+	const testUserID = 1
 	repo := &fakeRepository{
-		todos: []Todo{{ID: 1, Title: "Learn Go", Status: StatusPending}},
+		todos: []Todo{{ID: 1, Title: "Learn Go", Status: StatusPending, UserID: testUserID}},
 	}
 
 	service := NewService(repo)
-	_, found, err := service.UpdateStatus(context.Background(), 1, StatusCompleted)
+	_, found, err := service.UpdateStatus(context.Background(), 1, StatusCompleted, testUserID)
 	if err != ErrInvalidTransition {
 		t.Fatalf("expected invalid transition error, got %v", err)
 	}
@@ -140,7 +150,7 @@ func TestServiceRejectsInvalidStatusTransition(t *testing.T) {
 		t.Fatal("expected invalid transition not to report found")
 	}
 
-	item, found, err := service.GetByID(context.Background(), 1)
+	item, found, err := service.GetByID(context.Background(), 1, testUserID)
 	if err != nil {
 		t.Fatalf("get todo: %v", err)
 	}
@@ -153,15 +163,16 @@ func TestServiceRejectsInvalidStatusTransition(t *testing.T) {
 }
 
 func TestServiceGetByID(t *testing.T) {
+	const testUserID = 1
 	repo := &fakeRepository{
 		todos: []Todo{
-			{ID: 1, Title: "Learn Go", Status: StatusPending},
-			{ID: 2, Title: "Build a web app", Status: StatusPending},
+			{ID: 1, Title: "Learn Go", Status: StatusPending, UserID: testUserID},
+			{ID: 2, Title: "Build a web app", Status: StatusPending, UserID: testUserID},
 		},
 	}
 
 	service := NewService(repo)
-	item, found, err := service.GetByID(context.Background(), 2)
+	item, found, err := service.GetByID(context.Background(), 2, testUserID)
 
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
@@ -176,6 +187,7 @@ func TestServiceGetByID(t *testing.T) {
 	_, found, err = service.GetByID(
 		context.Background(),
 		999,
+		testUserID,
 	)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
