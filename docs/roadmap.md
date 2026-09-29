@@ -51,8 +51,8 @@ Go 企业级后端能力
 
 ```text
 本地地址：D:\demo\awesomeProject
-当前阶段：登录已返回 JWT；下一步鉴权中间件
-下一目标：JWT 中间件 -> 任务归属当前用户 -> Redis / Docker
+当前阶段：JWT 中间件 + GET /users/me 已接线
+下一目标：/users/me HTTP 测试 -> Todo 归属当前用户 -> Redis / Docker
 唯一下一步：以 docs/progress.md 为准（本文件是地图，不是执行清单）
 ```
 
