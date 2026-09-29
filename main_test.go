@@ -1,9 +1,9 @@
 package main
 
 import (
+	"awesomeProject/internal/auth"
 	"awesomeProject/internal/todo"
 	"awesomeProject/internal/user"
-	"awesomeProject/internal/auth"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -28,16 +28,16 @@ func newTestUserService(initialUsers []user.User) *user.Service {
 
 func (r *fakeUserRepository) Create(ctx context.Context, username, passwordHash string) (user.User, error) {
 
-	for _, existing  := range r.users {
+	for _, existing := range r.users {
 		if existing.Username == username {
 			return user.User{}, user.ErrUsernameTaken
 		}
 	}
 	id := len(r.users) + 1
 	item := user.User{ID: id, Username: username, PasswordHash: passwordHash}
-	
+
 	r.users = append(r.users, item)
-	return item, nil	
+	return item, nil
 }
 
 func (r *fakeUserRepository) GetByUsername(ctx context.Context, username string) (user.User, bool, error) {

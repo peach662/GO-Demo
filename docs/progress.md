@@ -88,7 +88,9 @@
 - [x] `config.Load` 读取 `JWT_SECRET`（空则报错）；`.env.example` 增加占位。
 - [x] `main` 使用 `auth.NewJWT`；`newRouter` 注入 `*auth.JWT`；登录成功响应 `data` 含 `user` + `token`。
 - [x] HTTP 测试补上 JWT；`TestLoginRoute` 断言成功响应含 `token`。`go test ./...` 通过。
-- [~] **JWT 学习标记**：签发与登录接线已能跑通；`jwt.go` 初稿曾有 AI 辅助，概念已复习过，**鉴权中间件尚未开始**。验签 / 从 Header 取 token / 把 `user_id` 放进上下文，仍是下一步要自己做的。
+- [x] `ParseToken`：验签、HMAC 检查、`user_id`（float64→int）、空密钥拒绝。
+- [x] `AuthMiddleware`：Bearer 校验；失败统一 `code/message/data` 401；成功写入 `ContextUserIDKey`。
+- [x] `GET /users/me` 挂中间件，返回当前 `user_id`。登录/注册保持公开。`go test ./...` 通过。
 
 ## 最近验证
 
@@ -334,20 +336,22 @@ Todo Repository / User Repository
     |
 MySQL（服务器 124.221.130.183:33603）
 
-另：internal/auth（JWT 已签发并接入登录；鉴权中间件未做）
+另：internal/auth（签发 + 验签 + 中间件；`GET /users/me` 已验证接线）
 ```
 
 ## 唯一下一步
 
-写 JWT **校验**并做成 Gin 中间件（还不要改 Todo 归属）。
+给 `GET /users/me` 写 HTTP 测试。
 
 要求：
 
-- 在 `internal/auth` 增加解析函数：校验签名与 `exp`，取出 `user_id`。
-- Gin 中间件：从 `Authorization: Bearer <token>` 取 token；失败返回 401；成功把 `user_id` 写入 `gin.Context`。
-- 先挂到一条简单的受保护路由上做验证（例如 `GET /users/me` 只返回当前 `user_id`），或先写 `auth` 包单测再挂路由。
+- 用假用户服务：先注册（或登录）拿到流程；登录响应里取出 `token`（可用 `json` 解析，或先 `Register` + `GenerateToken`；更贴近真实是 HTTP 注册→登录→带 Bearer 调 `/users/me`）。
+- 带 `Authorization: Bearer <token>` → 断言 200，body 含 `user_id`。
+- 不带 token → 断言 401。
 
-写完运行相关测试，把代码和结果发过来。
+写完运行 `go test . -run TestMeRoute`（名字自定），把结果发过来。
+
+再下一步才是：Todo 表增加 `user_id`、创建/列表只操作当前用户的数据。
 
 ## 跨设备与跨 Agent 续接
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"awesomeProject/internal/auth"
 	"awesomeProject/internal/config"
 	"awesomeProject/internal/database"
 	"awesomeProject/internal/todo"
@@ -8,7 +9,6 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"strconv"
-	"awesomeProject/internal/auth"
 )
 
 // TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
@@ -43,6 +43,25 @@ func main() {
 func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT) *gin.Engine {
 	r := gin.Default()
 	// ... (路由定义)
+	r.GET("/users/me", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
+		userID, ok := c.Get(auth.ContextUserIDKey)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "未授权",
+				"data":    nil,
+			})
+			return
+		}
+		c.JSON(200, gin.H{
+			"code":    0,
+			"message": "ok",
+			"data": gin.H{
+				"user_id": userID,
+			},
+		})
+	})
+
 	r.POST("/users/login", func(c *gin.Context) {
 		var req user.LoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -98,7 +117,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		c.JSON(200, gin.H{
 			"code":    0,
 			"message": "ok",
-			"data":    gin.H{
+			"data": gin.H{
 				"token": token,
 				"user":  login,
 			},
