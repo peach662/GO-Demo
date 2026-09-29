@@ -467,7 +467,8 @@ AI 可以帮助你：
 - [x] `POST /users/login` HTTP（先不发 JWT）
 - [x] 登录 HTTP 测试（成功 200 / 失败 401）
 - [x] `config` 读 `JWT_SECRET`；登录成功返回 `token`（签发已接入）
-- [ ] JWT 鉴权中间件（Parse + Bearer + Context）
+- [x] JWT 鉴权中间件（Parse + Bearer + Context）+ `GET /users/me`
+- [ ] `GET /users/me` HTTP 测试
 - [ ] Todo 归属当前用户
 - [ ] 将 Go 应用纳入 Docker Compose 启动
 - [ ] 增加 Redis 缓存
