@@ -486,3 +486,85 @@ func TestLoginRoute(t *testing.T) {
 		t.Fatalf("expected body %q, got %q", "用户名或密码错误", body)
 	}
 }
+func TestMeRoute(t *testing.T) {
+	todoService := newTestService(nil)
+	userService := newTestUserService(nil)
+	router := newRouter(todoService, userService, auth.NewJWT("test-secret"))
+	req := httptest.NewRequest(http.MethodPost, "/users/register", strings.NewReader(`{"username":"alice","password":"secret"}`))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, "alice") {
+		t.Fatalf("expected body %q, got %q", "alice", body)
+	}
+	if strings.Contains(body, "secret") {
+		t.Fatalf("expected body %q, got %q", "secret", body)
+	}
+	if strings.Contains(body, "password_hash") {
+		t.Fatalf("expected body %q, got %q", "password_hash", body)
+	}
+	req = httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"username":"alice","password":"secret"}`))
+	req.Header.Set("Content-Type", "application/json")
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+	body = recorder.Body.String()
+	if !strings.Contains(body, "alice") {
+		t.Fatalf("expected body %q, got %q", "alice", body)
+	}
+	if strings.Contains(body, "secret") {
+		t.Fatalf("expected body %q, got %q", "secret", body)
+	}
+	if strings.Contains(body, "password_hash") {
+		t.Fatalf("expected body %q, got %q", "password_hash", body)
+	}
+	if !strings.Contains(body, "token") {
+		t.Fatalf("expected body %q, got %q", "token", body)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/users/me", nil)
+	var loginResp struct {
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+	err := json.Unmarshal(recorder.Body.Bytes(), &loginResp)
+	if err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	token := loginResp.Data.Token
+	if token == "" {
+		t.Fatalf("expected token, got %q", token)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+	body = recorder.Body.String()
+
+	if !strings.Contains(body, "user_id") {
+		t.Fatalf("expected body %q, got %q", "user_id", body)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/users/me", nil)
+	// 不要设置 Authorization
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			recorder.Code, http.StatusUnauthorized)
+	}
+	body = recorder.Body.String()
+	if !strings.Contains(body, "未授权") {
+		t.Fatalf("expected body %q, got %q", "未授权", body)
+	}
+}

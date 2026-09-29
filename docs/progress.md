@@ -91,6 +91,7 @@
 - [x] `ParseToken`：验签、HMAC 检查、`user_id`（float64→int）、空密钥拒绝。
 - [x] `AuthMiddleware`：Bearer 校验；失败统一 `code/message/data` 401；成功写入 `ContextUserIDKey`。
 - [x] `GET /users/me` 挂中间件，返回当前 `user_id`。登录/注册保持公开。`go test ./...` 通过。
+- [x] 新增 `TestMeRoute`：注册→登录解析 `data.token`→带 Bearer 访问 `/users/me` 断言 200/`user_id`；无 Header 断言 401。`go test . -run TestMeRoute` 通过。
 
 ## 最近验证
 
@@ -313,6 +314,14 @@ go test ./...
 
 结果：根包、`internal/todo`、`internal/user` 均通过。
 
+用户已确认 `TestMeRoute` 后：
+
+```powershell
+go test . -run TestMeRoute
+```
+
+结果：`ok awesomeProject`。覆盖带 token 的 200 与无 Authorization 的 401。
+
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
@@ -349,17 +358,18 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-给 `GET /users/me` 写 HTTP 测试。
+给 Todo 增加「归属当前用户」（先做迁移与模型，再改接口）。
 
 要求：
 
-- 用假用户服务：先注册（或登录）拿到流程；登录响应里取出 `token`（可用 `json` 解析，或先 `Register` + `GenerateToken`；更贴近真实是 HTTP 注册→登录→带 Bearer 调 `/users/me`）。
-- 带 `Authorization: Bearer <token>` → 断言 200，body 含 `user_id`。
-- 不带 token → 断言 401。
+1. 新增 migration：`todos` 表增加 `user_id`（可先允许 NULL 或给历史数据默认值，再按你现有风格定 NOT NULL）。
+2. 在服务器 MySQL 执行该 migration。
+3. `todo.Todo` 增加 `UserID` 字段（JSON 可暴露 `user_id`）。
+4. 先让现有测试/编译尽量跟上字段变化（Repository 的 Scan/Insert 也要带上 `user_id`）。
 
-写完运行 `go test . -run TestMeRoute`（名字自定），把结果发过来。
+这一小步**先完成库表 + 模型 + Repository 读写字段**；创建时从 JWT 取 user_id、列表只查自己的，下一步再做。
 
-再下一步才是：Todo 表增加 `user_id`、创建/列表只操作当前用户的数据。
+写完把 migration 和改动过的 todo 文件发过来，并说明是否已在服务器执行成功。
 
 ## 跨设备与跨 Agent 续接
 
