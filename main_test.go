@@ -69,9 +69,9 @@ func (r *fakeRepository) GetByID(ctx context.Context, id int) (todo.Todo, bool, 
 	return todo.Todo{}, false, nil
 }
 
-func (r *fakeRepository) Create(ctx context.Context, title string) (todo.Todo, error) {
+func (r *fakeRepository) Create(ctx context.Context, title string, userID int) (todo.Todo, error) {
 	id := len(r.todos) + 1
-	t := todo.Todo{ID: id, Title: title, Status: todo.StatusPending}
+	t := todo.Todo{ID: id, Title: title, Status: todo.StatusPending, UserID: userID}
 	r.todos = append(r.todos, t)
 	return t, nil
 }

@@ -50,9 +50,10 @@ func TestMySQLRepositoryList(t *testing.T) {
 
 	result, err := db.ExecContext(
 		ctx,
-		`INSERT INTO todos (title, status) VALUES (?, ?)`,
+		`INSERT INTO todos (title, status, user_id) VALUES (?, ?, ?)`,
 		title,
 		StatusPending,
+		1,
 	)
 	if err != nil {
 		t.Fatalf("insert test todo: %v", err)
@@ -103,9 +104,10 @@ func TestMySQLRepositoryGetByID(t *testing.T) {
 
 	result, err := db.ExecContext(
 		ctx,
-		`INSERT INTO todos (title, status) VALUES (?, ?)`,
+		`INSERT INTO todos (title, status, user_id) VALUES (?, ?, ?)`,
 		title,
 		StatusPending,
+		1,
 	)
 	if err != nil {
 		t.Fatalf("insert test todo: %v", err)
@@ -184,7 +186,8 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 
 	repo := NewMySQLRepository(db)
 
-	created, err := repo.Create(context.Background(), title)
+	const testUserID = 42
+	created, err := repo.Create(context.Background(), title, testUserID)
 	if err != nil {
 		t.Fatalf("create todo: %v", err)
 	}
@@ -209,6 +212,9 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 	if created.Status != StatusPending {
 		t.Errorf("expected status %q", StatusPending)
 	}
+	if created.UserID != testUserID {
+		t.Errorf("expected UserID %d, got %d", testUserID, created.UserID)
+	}
 
 	item, found, err := repo.GetByID(ctx, created.ID)
 	if err != nil {
@@ -226,6 +232,9 @@ func TestMySQLRepositoryCreate(t *testing.T) {
 	if item.Status != StatusPending {
 		t.Errorf("expected stored status %q", StatusPending)
 	}
+	if item.UserID != testUserID {
+		t.Errorf("expected stored UserID %d, got %d", testUserID, item.UserID)
+	}
 }
 
 func TestMySQLRepositoryUpdateStatus(t *testing.T) {
@@ -239,7 +248,7 @@ func TestMySQLRepositoryUpdateStatus(t *testing.T) {
 
 	repo := NewMySQLRepository(db)
 
-	created, err := repo.Create(ctx, title)
+	created, err := repo.Create(ctx, title, 42)
 	if err != nil {
 		t.Fatalf("create todo: %v", err)
 	}

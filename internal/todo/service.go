@@ -23,9 +23,8 @@ func (s *Service) GetByID(ctx context.Context, id int) (Todo, bool, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *Service) Create(ctx context.Context, title string) (Todo, error) {
-
-	return s.repo.Create(ctx, title)
+func (s *Service) Create(ctx context.Context, title string, userID int) (Todo, error) {
+	return s.repo.Create(ctx, title, userID)
 }
 
 func (s *Service) UpdateStatus(ctx context.Context, id int, status Status) (Todo, bool, error) {

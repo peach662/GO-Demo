@@ -233,7 +233,8 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			return
 		}
 
-		newTodo, err := service.Create(c.Request.Context(), req.Title)
+		// TODO: take userID from JWT context once create route requires auth
+		newTodo, err := service.Create(c.Request.Context(), req.Title, 0)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"code":    500,

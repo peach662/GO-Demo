@@ -15,9 +15,23 @@ func NewMySQLRepository(db *sql.DB) *MySQLRepository {
 		db: db,
 	}
 }
+func scanTodo(scanner interface {
+	Scan(dest ...any) error
+}) (Todo, error) {
+	var item Todo
+	var userID sql.NullInt64
+	if err := scanner.Scan(&item.ID, &item.Title, &item.Status, &userID); err != nil {
+		return Todo{}, err
+	}
+	if userID.Valid {
+		item.UserID = int(userID.Int64)
+	}
+	return item, nil
+}
+
 func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
 	const query = `
-		SELECT id, title, status
+		SELECT id, title, status, user_id
 		FROM todos
 		ORDER BY id
 		`
@@ -29,8 +43,8 @@ func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
 
 	todos := make([]Todo, 0)
 	for rows.Next() {
-		var item Todo
-		if err := rows.Scan(&item.ID, &item.Title, &item.Status); err != nil {
+		item, err := scanTodo(rows)
+		if err != nil {
 			return nil, err
 		}
 		todos = append(todos, item)
@@ -41,10 +55,9 @@ func (r *MySQLRepository) List(ctx context.Context) ([]Todo, error) {
 	return todos, nil
 }
 func (r *MySQLRepository) GetByID(ctx context.Context, id int) (Todo, bool, error) {
-	const query = `SELECT id,title,status FROM todos WHERE id = ?`
+	const query = `SELECT id,title,status,user_id FROM todos WHERE id = ?`
 
-	var item Todo
-	err := r.db.QueryRowContext(ctx, query, id).Scan(&item.ID, &item.Title, &item.Status)
+	item, err := scanTodo(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Todo{}, false, nil
@@ -59,9 +72,10 @@ func (r *MySQLRepository) GetByID(ctx context.Context, id int) (Todo, bool, erro
 func (r *MySQLRepository) Create(
 	ctx context.Context,
 	title string,
+	userID int,
 ) (Todo, error) {
-	const query = `INSERT INTO todos (title, status) VALUES (?, ?)`
-	result, err := r.db.ExecContext(ctx, query, title, StatusPending)
+	const query = `INSERT INTO todos (title, status, user_id) VALUES (?, ?, ?)`
+	result, err := r.db.ExecContext(ctx, query, title, StatusPending, userID)
 	if err != nil {
 		return Todo{}, err
 	}
@@ -73,6 +87,7 @@ func (r *MySQLRepository) Create(
 		ID:     int(id),
 		Title:  title,
 		Status: StatusPending,
+		UserID: userID,
 	}, nil
 }
 
@@ -88,9 +103,8 @@ func (r *MySQLRepository) UpdateStatus(
 	}
 	defer tx.Rollback()
 
-	const selectQuery = `SELECT id,title,status FROM todos WHERE id = ? FOR UPDATE`
-	var item Todo
-	err = tx.QueryRowContext(ctx, selectQuery, id).Scan(&item.ID, &item.Title, &item.Status)
+	const selectQuery = `SELECT id,title,status,user_id FROM todos WHERE id = ? FOR UPDATE`
+	item, err := scanTodo(tx.QueryRowContext(ctx, selectQuery, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Todo{}, false, nil

@@ -24,11 +24,12 @@ func (f *fakeRepository) GetByID(ctx context.Context, id int) (Todo, bool, error
 	return Todo{}, false, nil
 }
 
-func (f *fakeRepository) Create(ctx context.Context, title string) (Todo, error) {
+func (f *fakeRepository) Create(ctx context.Context, title string, userID int) (Todo, error) {
 	item := Todo{
 		ID:     len(f.todos) + 1,
 		Title:  title,
 		Status: StatusPending,
+		UserID: userID,
 	}
 	f.todos = append(f.todos, item)
 	return item, nil
@@ -57,7 +58,7 @@ func TestServiceCreate(t *testing.T) {
 	}
 
 	service := NewService(repo)
-	created, err := service.Create(context.Background(), "Write tests")
+	created, err := service.Create(context.Background(), "Write tests", 7)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -70,6 +71,9 @@ func TestServiceCreate(t *testing.T) {
 	}
 	if created.Status != StatusPending {
 		t.Errorf("Expected status %q, got %q", StatusPending, created.Status)
+	}
+	if created.UserID != 7 {
+		t.Errorf("Expected UserID 7, got %d", created.UserID)
 	}
 	list, err := service.List(context.Background())
 	if err != nil {
