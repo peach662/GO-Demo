@@ -295,6 +295,14 @@ go test . -run TestLoginRoute
 
 结果：`ok awesomeProject`。覆盖成功登录与错密码 401。
 
+用户已确认 JWT 接入登录后：
+
+```powershell
+go test ./...
+```
+
+结果：根包、`internal/todo`、`internal/user` 均通过。登录成功响应含 `token`。
+
 本机 `.env` 曾指向 `127.0.0.1:13306`，测试报 `users` 表不存在。已把本地 `MYSQL_DSN` 改到服务器 `124.221.130.183:33603`。`.env` 仍不提交。
 
 已在容器 `awesome-project-mysql` 的 `awesome_project` 库执行 `003_create_todo_status_logs.sql`。`SHOW CREATE TABLE todo_status_logs` 确认：
