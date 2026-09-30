@@ -22,6 +22,12 @@ func main() {
 		panic(err)
 	}
 
+	redis,err := database.OpenRedis(cfg.RedisAddr)
+	if err != nil {
+		panic(err)
+	}
+	defer redis.Close()
+
 	db, err := database.OpenMySQL(cfg.MySQLDSN)
 	if err != nil {
 		panic(err)

@@ -10,6 +10,7 @@ import (
 type Config struct {
 	MySQLDSN  string
 	JWTSecret string
+	RedisAddr string
 }
 
 func Load() (Config, error) {
@@ -19,17 +20,21 @@ func Load() (Config, error) {
 
 	dsn := os.Getenv("MYSQL_DSN")
 	jwtSecret := os.Getenv("JWT_SECRET")
+	redisAddr := os.Getenv("REDIS_ADDR")
 	if dsn == "" {
 		return Config{}, fmt.Errorf("MYSQL_DSN is not set")
 	}
 	if jwtSecret == "" {
 		return Config{}, fmt.Errorf("JWT_SECRET is not set")
 	}
-
+	if redisAddr == "" {
+		return Config{}, fmt.Errorf("REDIS_ADDR is not set")
+	}
 	return Config{
 		MySQLDSN:  dsn,
 		JWTSecret: jwtSecret,
-	}, nil
+		RedisAddr: redisAddr,
+		}, nil
 }
 
 func loadLocalEnv(paths ...string) error {
@@ -38,7 +43,7 @@ func loadLocalEnv(paths ...string) error {
 		if err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("load %s: %w", path, err)
 		}
-		if os.Getenv("MYSQL_DSN") != "" && os.Getenv("JWT_SECRET") != "" {
+		if os.Getenv("MYSQL_DSN") != "" && os.Getenv("JWT_SECRET") != "" && os.Getenv("REDIS_ADDR") != "" {
 			return nil
 		}
 	}

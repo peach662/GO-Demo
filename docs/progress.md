@@ -100,6 +100,9 @@
 - [x] `List` / `GetByID` / `UpdateStatus` 全链路带 `userID`：MySQL `WHERE user_id = ?`；Service 透传；HTTP 的 GET/PATCH 挂 `AuthMiddleware`。
 - [x] HTTP 测试：fake 按 `UserID` 过滤；GET/PATCH 带 Bearer；列表不含他人 Todo；他人 id 当 404。`go test ./internal/todo/ -count=1` 与 `go test . -count=1` 通过。
 - [x] migration `006_make_todos_user_id_not_null.sql`：`UPDATE` 把 `user_id IS NULL` 回填为用户 `1`，再 `MODIFY ... NOT NULL`；已在服务器 `mysql-33603` / `awesome_project` 执行。验证：`null_user_id=0`，列 `Null=NO`。
+- [x] 服务器 Docker 新建 `redis-36379`（`redis:7-alpine`，`36379->6379`，volume `redis-36379-data`，AOF）；容器内 `PONG`。
+- [x] `REDIS_ADDR` 写入 `.env.example` / `.env`；`config.Load` 读取 `RedisAddr`。
+- [x] `database.OpenRedis`：`go-redis/v9` + `Ping`；`main` 启动时连接并 `defer Close`。`go run .` 监听 `:9090` 无 panic；`go test ./...` 通过。
 
 ## 最近验证
 
