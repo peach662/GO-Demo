@@ -111,7 +111,7 @@ func TestHealthRoute(t *testing.T) {
 		{ID: 3, Title: "Deploy to production", Status: todo.StatusPending},
 	})
 
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	recorder := httptest.NewRecorder()
@@ -133,7 +133,7 @@ func TestGetTodosRoute(t *testing.T) {
 		{ID: 3, Title: "Someone else", Status: todo.StatusPending, UserID: 99},
 	})
 	jwtService := auth.NewJWT("test")
-	router := newRouter(service, user.NewService(nil), jwtService)
+	router := newRouter(service, user.NewService(nil), jwtService, nil)
 	req := httptest.NewRequest(http.MethodGet, "/todos", nil)
 	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
@@ -173,7 +173,7 @@ func TestGetTodoNotFoundRoute(t *testing.T) {
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: 99},
 	})
 	jwtService := auth.NewJWT("test")
-	router := newRouter(service, user.NewService(nil), jwtService)
+	router := newRouter(service, user.NewService(nil), jwtService, nil)
 	req := httptest.NewRequest(http.MethodGet, "/todos/2", nil)
 	req.Header.Set("Authorization", "Bearer "+bearerToken(t, jwtService, testTodoOwnerID))
 	recorder := httptest.NewRecorder()
@@ -202,7 +202,7 @@ func TestGetTodoNotFoundRoute(t *testing.T) {
 func TestRegisterRoute(t *testing.T) {
 	todoService := newTestService(nil)
 	userService := newTestUserService(nil)
-	router := newRouter(todoService, userService, auth.NewJWT("test-secret"))
+	router := newRouter(todoService, userService, auth.NewJWT("test-secret"), nil)
 	reqBody := `{"username":"alice","password":"secret"}`
 	req := httptest.NewRequest(http.MethodPost, "/users/register", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -231,7 +231,7 @@ func TestRegisterDuplicateRoute(t *testing.T) {
 	userService := newTestUserService([]user.User{
 		{ID: 1, Username: "alice", PasswordHash: "secret"},
 	})
-	router := newRouter(todoService, userService, auth.NewJWT("test-secret"))
+	router := newRouter(todoService, userService, auth.NewJWT("test-secret"), nil)
 	reqBody := `{"username":"alice","password":"secret"}`
 	req := httptest.NewRequest(http.MethodPost, "/users/register", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -249,7 +249,7 @@ func TestCreateTodoRoute(t *testing.T) {
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
 	jwtService := auth.NewJWT("test")
-	router := newRouter(service, user.NewService(nil), jwtService)
+	router := newRouter(service, user.NewService(nil), jwtService, nil)
 	reqBody := `{"title":"Write HTTP tests"}`
 	req := httptest.NewRequest(http.MethodPost, "/todos", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -302,7 +302,7 @@ func TestCreateTodoValidationError(t *testing.T) {
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
 	jwtService := auth.NewJWT("test")
-	router := newRouter(service, user.NewService(nil), jwtService)
+	router := newRouter(service, user.NewService(nil), jwtService, nil)
 	reqBody := `{}`
 	req := httptest.NewRequest(http.MethodPost, "/todos", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -343,7 +343,7 @@ func TestCreateTodoUnauthorized(t *testing.T) {
 		{ID: 1, Title: "Learn Go", Status: todo.StatusPending, UserID: testTodoOwnerID},
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
-	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"))
+	router := newRouter(service, user.NewService(nil), auth.NewJWT("test"), nil)
 	reqBody := `{"title":"Write HTTP tests"}`
 	req := httptest.NewRequest(http.MethodPost, "/todos", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -368,7 +368,7 @@ func TestUpdateTodoStatusRoute(t *testing.T) {
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
 	jwtService := auth.NewJWT("test")
-	router := newRouter(service, user.NewService(nil), jwtService)
+	router := newRouter(service, user.NewService(nil), jwtService, nil)
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/1", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -418,7 +418,7 @@ func TestUpdateTodoStatusNotFoundRoute(t *testing.T) {
 		{ID: 2, Title: "Build a web app", Status: todo.StatusPending, UserID: testTodoOwnerID},
 	})
 	jwtService := auth.NewJWT("test")
-	router := newRouter(service, user.NewService(nil), jwtService)
+	router := newRouter(service, user.NewService(nil), jwtService, nil)
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/999", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -457,7 +457,7 @@ func TestUpdateTodoInvalidTransitionRoute(t *testing.T) {
 		{ID: 1, Title: "Completed todo", Status: todo.StatusCompleted, UserID: testTodoOwnerID},
 	})
 	jwtService := auth.NewJWT("test")
-	router := newRouter(service, user.NewService(nil), jwtService)
+	router := newRouter(service, user.NewService(nil), jwtService, nil)
 	reqBody := `{"status":"PROCESSING"}`
 	req := httptest.NewRequest(http.MethodPatch, "/todos/1", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -487,7 +487,7 @@ func TestUpdateTodoInvalidTransitionRoute(t *testing.T) {
 func TestLoginRoute(t *testing.T) {
 	todoService := newTestService(nil)
 	userService := newTestUserService(nil)
-	router := newRouter(todoService, userService, auth.NewJWT("test-secret"))
+	router := newRouter(todoService, userService, auth.NewJWT("test-secret"), nil)
 	reqBody := `{"username":"alice","password":"secret"}`
 	req := httptest.NewRequest(http.MethodPost, "/users/register", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -545,7 +545,7 @@ func TestLoginRoute(t *testing.T) {
 func TestMeRoute(t *testing.T) {
 	todoService := newTestService(nil)
 	userService := newTestUserService(nil)
-	router := newRouter(todoService, userService, auth.NewJWT("test-secret"))
+	router := newRouter(todoService, userService, auth.NewJWT("test-secret"), nil)
 	req := httptest.NewRequest(http.MethodPost, "/users/register", strings.NewReader(`{"username":"alice","password":"secret"}`))
 	req.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()

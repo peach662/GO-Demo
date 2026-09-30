@@ -106,6 +106,7 @@
 - [x] `GetByID` 读缓存：key `todo:{userID}:{id}`，TTL 5m；未命中查库并回填；`redis==nil` 仅查库。`NewService(repo, redis)`；测试传 `nil`。`go test ./...` 通过。
 - [x] `UpdateStatus` 写库成功后 `Del` 同 key（`redis==nil` 跳过）；`go test ./...` 通过。
 - [x] `List` 缓存：key `todos:{userID}`，TTL 2m；Create / UpdateStatus 成功后失效列表 key（Update 同时删详情 key）。`go test ./...` 通过。
+- [x] `GET /health`：注入 redis；`Ping` 失败返回 503；测试 `newRouter(..., nil)`。`go test .` 通过。
 
 ## 最近验证
 
@@ -372,9 +373,9 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-工程化任选其一：健康检查增加 Redis Ping，或用文档/Compose 说明服务器上 `mysql-33603` + `redis-36379` 的用法（不要重建已有数据卷）。
+用简短文档说明服务器中间件：`mysql-33603` 与 `redis-36379` 的用途、端口、以及本机 `.env` 如何指向它们（不要重建已有 Docker 数据卷）。
 
-缓存主路径（详情 + 列表 + 写失效）已完成；穿透/击穿等以后再学。
+或进入 roadmap 下一阶段（如 RabbitMQ / Docker Compose 应用侧）。选一条再说。
 
 ## 跨设备与跨 Agent 续接
 

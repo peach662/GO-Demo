@@ -51,8 +51,8 @@ Go 企业级后端能力
 
 ```text
 本地地址：D:\demo\awesomeProject
-当前阶段：Redis 已连通（服务器 redis-36379 + OpenRedis Ping）
-下一目标：Todo 读路径缓存 -> Docker / 工程化
+当前阶段：Redis 缓存 + /health Ping 已落地
+下一目标：中间件文档 / Compose -> 消息队列
 唯一下一步：以 docs/progress.md 为准（本文件是地图，不是执行清单）
 ```
 

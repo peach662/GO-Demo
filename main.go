@@ -8,6 +8,7 @@ import (
 	"awesomeProject/internal/user"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"strconv"
 )
 
@@ -40,13 +41,13 @@ func main() {
 	userRepo := user.NewMySQLRepository(db)
 	userService := user.NewService(userRepo)
 
-	r := newRouter(service, userService, jwtService)
+	r := newRouter(service, userService, jwtService,redis)
 	if err := r.Run(":9090"); err != nil {
 		panic(err)
 	}
 }
 
-func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT) *gin.Engine {
+func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT,redis *redis.Client) *gin.Engine {
 	r := gin.Default()
 	// ... (路由定义)
 	r.GET("/users/me", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
@@ -379,6 +380,17 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		})
 	})
 	r.GET("/health", func(c *gin.Context) {
+		if redis != nil {
+			err := redis.Ping(c.Request.Context()).Err()
+			if err != nil {
+				c.JSON(503, gin.H{
+					"code":    503,
+					"message": "redis 连接失败",
+					"data":    nil,
+				})
+				return
+			}
+		}
 		c.JSON(200, gin.H{
 			"code":    0,
 			"message": "ok",
