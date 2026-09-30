@@ -99,6 +99,7 @@
 - [x] HTTP 测试：`TestCreateTodoRoute` / `TestCreateTodoValidationError` 带 Bearer（`GenerateToken`）；新增 `TestCreateTodoUnauthorized`（无 Header → 401，列表不变）。`go test . -run 'TestCreateTodo'` 通过。
 - [x] `List` / `GetByID` / `UpdateStatus` 全链路带 `userID`：MySQL `WHERE user_id = ?`；Service 透传；HTTP 的 GET/PATCH 挂 `AuthMiddleware`。
 - [x] HTTP 测试：fake 按 `UserID` 过滤；GET/PATCH 带 Bearer；列表不含他人 Todo；他人 id 当 404。`go test ./internal/todo/ -count=1` 与 `go test . -count=1` 通过。
+- [x] migration `006_make_todos_user_id_not_null.sql`：`UPDATE` 把 `user_id IS NULL` 回填为用户 `1`，再 `MODIFY ... NOT NULL`；已在服务器 `mysql-33603` / `awesome_project` 执行。验证：`null_user_id=0`，列 `Null=NO`。
 
 ## 最近验证
 
@@ -365,11 +366,15 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-给历史 Todo 的 `user_id` 定规则：回填归属，或把列改为 `NOT NULL`（含新的 migration 与服务器执行）。
+开始接入 Redis（仍用服务器 Docker，不要用本机 Docker Desktop）。
 
-当前 `user_id` 仍允许 NULL，新写入已带登录用户；这一步是数据完整性，不是新接口。
+要求：
 
-写完说明 migration 是否已在服务器执行，以及旧行如何处理。
+1. 在服务器上确认是否已有 Redis 容器；没有则新建（独立端口与 volume，不要动 `mysql-33603`）。
+2. 在 `.env.example`（及本地 `.env`）增加 Redis 连接配置。
+3. 先做最小连通：Go 能 `Ping` Redis 成功（小步，暂不做业务缓存）。
+
+写完说明容器名、端口和 `Ping` 验证结果。
 
 ## 跨设备与跨 Agent 续接
 
