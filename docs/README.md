@@ -6,8 +6,9 @@
 
 - [学习路线](./roadmap.md)：6 个月能力路线、优先级与项目方向。
 - [学习进度](./progress.md)：当前完成内容、最近验证结果和下一步。
+- [服务器中间件](./middleware.md)：本项目 MySQL / Redis 容器、端口与 `.env` 指向。
 
-项目 Skill 在 `.cursor/skills/`。学习时用 TuTor；Go 审查用 `golang-*`，不要一次手动点开全部。服务器中间件说明在 `server-middleware`。
+项目 Skill 在 `.cursor/skills/`。学习时用 TuTor；Go 审查用 `golang-*`，不要一次手动点开全部。服务器中间件操作细节也在 skill `server-middleware`；日常续学先看本文档入口里的 [middleware.md](./middleware.md)。
 
 ## 维护规则
 
