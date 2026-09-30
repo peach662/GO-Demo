@@ -369,15 +369,16 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-开始接入 Redis（仍用服务器 Docker，不要用本机 Docker Desktop）。
+给 Todo 读路径加一层 Redis 缓存（先做 `GET /todos/:id` 或列表二选一，小步）。
 
 要求：
 
-1. 在服务器上确认是否已有 Redis 容器；没有则新建（独立端口与 volume，不要动 `mysql-33603`）。
-2. 在 `.env.example`（及本地 `.env`）增加 Redis 连接配置。
-3. 先做最小连通：Go 能 `Ping` Redis 成功（小步，暂不做业务缓存）。
+1. 约定 key（例如按 `user_id` + `todo id`），设合理 TTL。
+2. 读：先查 Redis，没有再查 MySQL，并回填缓存。
+3. 写（Create / UpdateStatus）：更新库后删除或更新对应 key，避免脏读。
+4. 补测试或手测说明命中/失效行为。
 
-写完说明容器名、端口和 `Ping` 验证结果。
+这一小步**先通一条读路径**；穿透/击穿等以后再做。
 
 ## 跨设备与跨 Agent 续接
 
