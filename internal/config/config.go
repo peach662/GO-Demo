@@ -34,7 +34,7 @@ func Load() (Config, error) {
 		MySQLDSN:  dsn,
 		JWTSecret: jwtSecret,
 		RedisAddr: redisAddr,
-		}, nil
+	}, nil
 }
 
 func loadLocalEnv(paths ...string) error {

@@ -103,6 +103,9 @@
 - [x] 服务器 Docker 新建 `redis-36379`（`redis:7-alpine`，`36379->6379`，volume `redis-36379-data`，AOF）；容器内 `PONG`。
 - [x] `REDIS_ADDR` 写入 `.env.example` / `.env`；`config.Load` 读取 `RedisAddr`。
 - [x] `database.OpenRedis`：`go-redis/v9` + `Ping`；`main` 启动时连接并 `defer Close`。`go run .` 监听 `:9090` 无 panic；`go test ./...` 通过。
+- [x] `GetByID` 读缓存：key `todo:{userID}:{id}`，TTL 5m；未命中查库并回填；`redis==nil` 仅查库。`NewService(repo, redis)`；测试传 `nil`。`go test ./...` 通过。
+- [x] `UpdateStatus` 写库成功后 `Del` 同 key（`redis==nil` 跳过）；`go test ./...` 通过。
+- [x] `List` 缓存：key `todos:{userID}`，TTL 2m；Create / UpdateStatus 成功后失效列表 key（Update 同时删详情 key）。`go test ./...` 通过。
 
 ## 最近验证
 
@@ -369,16 +372,9 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-给 Todo 读路径加一层 Redis 缓存（先做 `GET /todos/:id` 或列表二选一，小步）。
+工程化任选其一：健康检查增加 Redis Ping，或用文档/Compose 说明服务器上 `mysql-33603` + `redis-36379` 的用法（不要重建已有数据卷）。
 
-要求：
-
-1. 约定 key（例如按 `user_id` + `todo id`），设合理 TTL。
-2. 读：先查 Redis，没有再查 MySQL，并回填缓存。
-3. 写（Create / UpdateStatus）：更新库后删除或更新对应 key，避免脏读。
-4. 补测试或手测说明命中/失效行为。
-
-这一小步**先通一条读路径**；穿透/击穿等以后再做。
+缓存主路径（详情 + 列表 + 写失效）已完成；穿透/击穿等以后再学。
 
 ## 跨设备与跨 Agent 续接
 

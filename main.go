@@ -22,7 +22,7 @@ func main() {
 		panic(err)
 	}
 
-	redis,err := database.OpenRedis(cfg.RedisAddr)
+	redis, err := database.OpenRedis(cfg.RedisAddr)
 	if err != nil {
 		panic(err)
 	}
@@ -36,7 +36,7 @@ func main() {
 	jwtService := auth.NewJWT(cfg.JWTSecret)
 
 	repo := todo.NewMySQLRepository(db)
-	service := todo.NewService(repo)
+	service := todo.NewService(repo, redis)
 	userRepo := user.NewMySQLRepository(db)
 	userService := user.NewService(userRepo)
 
@@ -264,7 +264,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			"data":    item,
 		})
 	})
-	r.POST("/todos",auth.AuthMiddleware(jwtService), func(c *gin.Context) {
+	r.POST("/todos", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
 		userID, ok := c.Get(auth.ContextUserIDKey)
 		if !ok {
 			c.JSON(401, gin.H{
@@ -274,7 +274,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
-		userIDInt,ok := userID.(int)
+		userIDInt, ok := userID.(int)
 		if !ok {
 			c.JSON(401, gin.H{
 				"code":    401,
@@ -292,7 +292,6 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
-		
 
 		newTodo, err := service.Create(c.Request.Context(), req.Title, userIDInt)
 		if err != nil {
