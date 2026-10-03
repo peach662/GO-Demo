@@ -29,6 +29,17 @@ func main() {
 	}
 	defer redis.Close()
 
+	conn, err := database.OpenRabbitMQ(cfg.RabbitMQURL)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	err = database.DeclareQueue(conn, "todo.events")
+	if err != nil {
+		panic(err)
+	}
+	
 	db, err := database.OpenMySQL(cfg.MySQLDSN)
 	if err != nil {
 		panic(err)

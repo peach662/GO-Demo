@@ -108,6 +108,9 @@
 - [x] `List` 缓存：key `todos:{userID}`，TTL 2m；Create / UpdateStatus 成功后失效列表 key（Update 同时删详情 key）。`go test ./...` 通过。
 - [x] `GET /health`：注入 redis；`Ping` 失败返回 503；测试 `newRouter(..., nil)`。`go test .` 通过。
 - [x] 新增 `docs/middleware.md`：说明 `mysql-33603` / `redis-36379`、端口与 `.env`；`docs/README.md` 增加入口链接。
+- [x] 服务器 Docker 启动 `rabbitmq-35672`（`rabbitmq:3-management-alpine`）：AMQP `35672→5672`，管理台 `35673→15672`，用户 `app` / `app123`，volume `rabbitmq-35672-data`；`rabbitmq-diagnostics ping` 成功。`docs/middleware.md` / `.env.example` 已记 `RABBITMQ_URL`。
+- [x] `config.Load` 读取 `RabbitMQURL`（`RABBITMQ_URL`）；`database.OpenRabbitMQ` 用 `amqp091-go` Dial；`main` 启动连接并 `defer conn.Close()`。`go run .` 监听 `:9090`，无 RabbitMQ panic。
+- [x] `database.DeclareQueue`：Channel + `QueueDeclare`（durable）；`main` 声明 `todo.events`；管理台可见该队列（Features `D`，running）。
 
 ## 最近验证
 
@@ -374,9 +377,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-开始接触消息队列：在服务器 Docker 增加 RabbitMQ（独立端口与 volume，勿动已有 MySQL/Redis 容器），本机 `.env` 写上连接信息，Go 做到最小连通（能 Dial / 声明一个队列即可）。
-
-写完说明容器名、端口和连通验证方式。
+RabbitMQ 最小连通已完成（Dial + 声明 `todo.events`）。下一步可选：Publish 一条学习消息到该队列，或在管理台 Get messages 验证；再往后才是业务里 Create Todo 后发事件。
 
 ## 跨设备与跨 Agent 续接
 
