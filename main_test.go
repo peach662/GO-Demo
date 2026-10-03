@@ -54,7 +54,7 @@ const testTodoOwnerID = 1
 func newTestService(initialTodos []todo.Todo) *todo.Service {
 	return todo.NewService(&fakeRepository{
 		todos: initialTodos,
-	},nil)
+	}, nil)
 }
 
 func bearerToken(t *testing.T, jwtService *auth.JWT, userID int) string {

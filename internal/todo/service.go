@@ -90,14 +90,14 @@ func (s *Service) Create(ctx context.Context, title string, userID int) (Todo, e
 	if s.redis == nil {
 		return s.repo.Create(ctx, title, userID)
 	}
-				
-	 todo, err := s.repo.Create(ctx, title, userID)
-	 if err != nil {
+
+	todo, err := s.repo.Create(ctx, title, userID)
+	if err != nil {
 		return todo, err
-	 }
-	 key := fmt.Sprintf("todos:%d", userID)
-	 _ = s.redis.Del(ctx, key).Err()
-	 return todo, nil
+	}
+	key := fmt.Sprintf("todos:%d", userID)
+	_ = s.redis.Del(ctx, key).Err()
+	return todo, nil
 }
 
 func (s *Service) UpdateStatus(ctx context.Context, id int, status Status, userID int) (Todo, bool, error) {
@@ -111,7 +111,7 @@ func (s *Service) UpdateStatus(ctx context.Context, id int, status Status, userI
 	if !CanTransition(current.Status, status) {
 		return Todo{}, false, ErrInvalidTransition
 	}
-	
+
 	updated, found, err := s.repo.UpdateStatus(ctx, id, status, userID)
 	if err != nil {
 		return Todo{}, false, err
@@ -121,12 +121,11 @@ func (s *Service) UpdateStatus(ctx context.Context, id int, status Status, userI
 	}
 	key := fmt.Sprintf("todo:%d:%d", userID, id)
 	listKey := fmt.Sprintf("todos:%d", userID)
-	if s.redis == nil{
+	if s.redis == nil {
 		return updated, true, nil
 	}
 
 	_ = s.redis.Del(ctx, key, listKey).Err()
-      return updated, true, nil
-	
+	return updated, true, nil
 
 }

@@ -1,14 +1,13 @@
 package database
 
 import (
-	amqp "github.com/rabbitmq/amqp091-go"
 	"fmt"
-	
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type RabbitMQ struct {
 	conn *amqp.Connection
-	ch *amqp.Channel
+	ch   *amqp.Channel
 }
 
 func OpenRabbitMQ(url string) (*amqp.Connection, error) {
@@ -24,7 +23,6 @@ func CloseRabbitMQ(conn *amqp.Connection) error {
 }
 
 func DeclareQueue(conn *amqp.Connection, queue string) error {
-
 
 	ch, err := conn.Channel()
 	if err != nil {
@@ -44,4 +42,55 @@ func DeclareQueue(conn *amqp.Connection, queue string) error {
 	}
 
 	return nil
+}
+
+func PublishMessage(conn *amqp.Connection, queue string, message []byte) error {
+	ch, err := conn.Channel()
+	if err != nil {
+		return fmt.Errorf("failed to open channel: %w", err)
+	}
+	defer ch.Close()
+	err = ch.Publish(
+		"",
+		queue,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        message,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to publish message: %w", err)
+	}
+	return nil
+}
+
+func ConsumeMessage(conn *amqp.Connection, queue string) ([]byte, error) {
+	ch, err := conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open channel: %w", err)
+
+	}
+	defer ch.Close()
+	msgs, err := ch.Consume(
+		queue,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to consume message: %w", err)
+	}
+	msg := <-msgs
+
+	err = msg.Ack(false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ack message: %w", err)
+	}
+	return msg.Body, err
+
 }

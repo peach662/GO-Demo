@@ -111,6 +111,8 @@
 - [x] 服务器 Docker 启动 `rabbitmq-35672`（`rabbitmq:3-management-alpine`）：AMQP `35672→5672`，管理台 `35673→15672`，用户 `app` / `app123`，volume `rabbitmq-35672-data`；`rabbitmq-diagnostics ping` 成功。`docs/middleware.md` / `.env.example` 已记 `RABBITMQ_URL`。
 - [x] `config.Load` 读取 `RabbitMQURL`（`RABBITMQ_URL`）；`database.OpenRabbitMQ` 用 `amqp091-go` Dial；`main` 启动连接并 `defer conn.Close()`。`go run .` 监听 `:9090`，无 RabbitMQ panic。
 - [x] `database.DeclareQueue`：Channel + `QueueDeclare`（durable）；`main` 声明 `todo.events`；管理台可见该队列（Features `D`，running）。
+- [x] `database.PublishMessage`：默认交换机 `""` + 路由键队列名；`main` 启动时发 `hello`。`go run .` 监听 `:9090`，无 panic。管理台 Get messages：payload `hello`，`content_type: text/plain`，Exchange `(AMQP default)`，Routing Key `todo.events`。
+- [x] `database.ConsumeMessage`：`Consume` + `<-msgs` + 手动 `Ack`；`main` 在 Publish 后取一条并打印。`go run .` 启动日志出现 `hello` 后监听 `:9090`。
 
 ## 最近验证
 
@@ -377,7 +379,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-RabbitMQ 最小连通已完成（Dial + 声明 `todo.events`）。下一步可选：Publish 一条学习消息到该队列，或在管理台 Get messages 验证；再往后才是业务里 Create Todo 后发事件。
+RabbitMQ 学习闭环已通（Dial、声明 `todo.events`、Publish、Consume+Ack）。下一步：从 `main` 拿掉启动时的 `hello` 收发，只保留连接和声明队列；随后再把 Publish 接到 Create Todo。
 
 ## 跨设备与跨 Agent 续接
 

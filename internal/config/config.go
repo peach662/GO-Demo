@@ -8,9 +8,9 @@ import (
 )
 
 type Config struct {
-	MySQLDSN  string
-	JWTSecret string
-	RedisAddr string
+	MySQLDSN    string
+	JWTSecret   string
+	RedisAddr   string
 	RabbitMQURL string
 }
 
@@ -36,9 +36,9 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("RABBITMQ_URL is not set")
 	}
 	return Config{
-		MySQLDSN:  dsn,
-		JWTSecret: jwtSecret,
-		RedisAddr: redisAddr,
+		MySQLDSN:    dsn,
+		JWTSecret:   jwtSecret,
+		RedisAddr:   redisAddr,
 		RabbitMQURL: rabbitMQURL,
 	}, nil
 }

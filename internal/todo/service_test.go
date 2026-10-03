@@ -65,7 +65,7 @@ func TestServiceCreate(t *testing.T) {
 		},
 	}
 
-	service := NewService(repo,nil)
+	service := NewService(repo, nil)
 	created, err := service.Create(context.Background(), "Write tests", testUserID)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
@@ -103,7 +103,7 @@ func TestServiceUpdateStatus(t *testing.T) {
 		},
 	}
 
-	service := NewService(repo,nil)
+	service := NewService(repo, nil)
 
 	updated, found, err := service.UpdateStatus(context.Background(), 1, StatusProcessing, testUserID)
 	if err != nil {
@@ -141,7 +141,7 @@ func TestServiceRejectsInvalidStatusTransition(t *testing.T) {
 		todos: []Todo{{ID: 1, Title: "Learn Go", Status: StatusPending, UserID: testUserID}},
 	}
 
-	service := NewService(repo,nil)
+	service := NewService(repo, nil)
 	_, found, err := service.UpdateStatus(context.Background(), 1, StatusCompleted, testUserID)
 	if err != ErrInvalidTransition {
 		t.Fatalf("expected invalid transition error, got %v", err)
@@ -171,7 +171,7 @@ func TestServiceGetByID(t *testing.T) {
 		},
 	}
 
-	service := NewService(repo,nil)
+	service := NewService(repo, nil)
 	item, found, err := service.GetByID(context.Background(), 2, testUserID)
 
 	if err != nil {

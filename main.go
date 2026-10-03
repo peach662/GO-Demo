@@ -7,6 +7,7 @@ import (
 	"awesomeProject/internal/todo"
 	"awesomeProject/internal/user"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"strconv"
@@ -39,7 +40,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
+	err = database.PublishMessage(conn, "todo.events", []byte("hello"))
+	if err != nil {
+		panic(err)
+	}
+	message, err := database.ConsumeMessage(conn, "todo.events")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(message))
 	db, err := database.OpenMySQL(cfg.MySQLDSN)
 	if err != nil {
 		panic(err)
@@ -52,13 +61,13 @@ func main() {
 	userRepo := user.NewMySQLRepository(db)
 	userService := user.NewService(userRepo)
 
-	r := newRouter(service, userService, jwtService,redis)
+	r := newRouter(service, userService, jwtService, redis)
 	if err := r.Run(":9090"); err != nil {
 		panic(err)
 	}
 }
 
-func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT,redis *redis.Client) *gin.Engine {
+func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT, redis *redis.Client) *gin.Engine {
 	r := gin.Default()
 	// ... (路由定义)
 	r.GET("/users/me", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
