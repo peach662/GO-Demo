@@ -113,6 +113,7 @@
 - [x] `database.DeclareQueue`：Channel + `QueueDeclare`（durable）；`main` 声明 `todo.events`；管理台可见该队列（Features `D`，running）。
 - [x] `database.PublishMessage`：默认交换机 `""` + 路由键队列名；`main` 启动时发 `hello`。`go run .` 监听 `:9090`，无 panic。管理台 Get messages：payload `hello`，`content_type: text/plain`，Exchange `(AMQP default)`，Routing Key `todo.events`。
 - [x] `database.ConsumeMessage`：`Consume` + `<-msgs` + 手动 `Ack`；`main` 在 Publish 后取一条并打印。`go run .` 启动日志出现 `hello` 后监听 `:9090`。
+- [x] 从 `main` 启动路径移除学习用 `PublishMessage` / `ConsumeMessage` / `fmt.Println`；保留 `OpenRabbitMQ`、`defer Close`、`DeclareQueue`。`Publish`/`Consume` 函数仍留在 `database` 包供下一步业务接入。
 
 ## 最近验证
 
@@ -379,7 +380,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-RabbitMQ 学习闭环已通（Dial、声明 `todo.events`、Publish、Consume+Ack）。下一步：从 `main` 拿掉启动时的 `hello` 收发，只保留连接和声明队列；随后再把 Publish 接到 Create Todo。
+RabbitMQ 连通与收发函数已就绪，启动路径只保留连接和声明队列。下一步：把 `PublishMessage` 接到 Create Todo（创建成功后往 `todo.events` 发一条事件）。
 
 ## 跨设备与跨 Agent 续接
 

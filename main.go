@@ -7,7 +7,6 @@ import (
 	"awesomeProject/internal/todo"
 	"awesomeProject/internal/user"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"strconv"
@@ -40,15 +39,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = database.PublishMessage(conn, "todo.events", []byte("hello"))
-	if err != nil {
-		panic(err)
-	}
-	message, err := database.ConsumeMessage(conn, "todo.events")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(message))
+
 	db, err := database.OpenMySQL(cfg.MySQLDSN)
 	if err != nil {
 		panic(err)
