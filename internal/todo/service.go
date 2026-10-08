@@ -6,17 +6,21 @@ import (
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"time"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"awesomeProject/internal/database"
 )
 
 type Service struct {
 	repo  Repository
 	redis *redis.Client
+	msg   *amqp.Connection
 }
 
-func NewService(repo Repository, redis *redis.Client) *Service {
+func NewService(repo Repository, redis *redis.Client,msg *amqp.Connection) *Service {
 	return &Service{
 		repo:  repo,
 		redis: redis,
+		msg:   msg,
 	}
 }
 
@@ -87,16 +91,26 @@ func (s *Service) GetByID(ctx context.Context, id int, userID int) (Todo, bool, 
 }
 
 func (s *Service) Create(ctx context.Context, title string, userID int) (Todo, error) {
-	if s.redis == nil {
-		return s.repo.Create(ctx, title, userID)
-	}
-
 	todo, err := s.repo.Create(ctx, title, userID)
 	if err != nil {
 		return todo, err
 	}
-	key := fmt.Sprintf("todos:%d", userID)
-	_ = s.redis.Del(ctx, key).Err()
+
+	if s.redis != nil {
+		key := fmt.Sprintf("todos:%d", userID)
+		_ = s.redis.Del(ctx, key).Err()
+	}
+
+	if s.msg != nil {
+		body, err := json.Marshal(todo)
+		if err != nil {
+			return todo, err
+		}
+		if err := database.PublishMessage(s.msg, "todo.events", body); err != nil {
+			return todo, err
+		}
+	}
+
 	return todo, nil
 }
 

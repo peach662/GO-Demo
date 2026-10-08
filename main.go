@@ -48,7 +48,7 @@ func main() {
 	jwtService := auth.NewJWT(cfg.JWTSecret)
 
 	repo := todo.NewMySQLRepository(db)
-	service := todo.NewService(repo, redis)
+	service := todo.NewService(repo, redis,conn)
 	userRepo := user.NewMySQLRepository(db)
 	userService := user.NewService(userRepo)
 
