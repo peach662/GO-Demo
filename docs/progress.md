@@ -115,6 +115,7 @@
 - [x] `database.ConsumeMessage`：`Consume` + `<-msgs` + 手动 `Ack`；`main` 在 Publish 后取一条并打印。`go run .` 启动日志出现 `hello` 后监听 `:9090`。
 - [x] 从 `main` 启动路径移除学习用 `PublishMessage` / `ConsumeMessage` / `fmt.Println`；保留 `OpenRabbitMQ`、`defer Close`、`DeclareQueue`。`Publish`/`Consume` 函数仍留在 `database` 包供下一步业务接入。
 - [x] `todo.Service` 注入 `*amqp.Connection`（`nil` 跳过）；`Create` 成功后可选清 Redis 列表缓存，再 `json.Marshal` + `database.PublishMessage` 发到 `todo.events`。`main` 传 `conn`；测试传 `nil`。HTTP 创建 Todo 后管理台/API 可见 JSON（如 `id`/`title`/`status`/`user_id`）。
+- [x] `database.StartConsumer`：goroutine 中 `range` + `Ack`；`main` 声明队列后启动。创建 Todo（如 id=82）后队列 Ready/Unacked 均为 0；进程应打印 `Received message: ...`。
 
 ## 最近验证
 
@@ -381,7 +382,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-Create Todo 已会往 `todo.events` Publish。下一步：常驻 Consume（goroutine 持续消费并 Ack），先别做复杂业务副作用。
+常驻 Consume 已接上（Create 发事件 → 后台 Ack）。下一步：幂等 / 失败重试（同一条事件不重复副作用；Nack/重入队），先别上复杂业务。
 
 ## 跨设备与跨 Agent 续接
 

@@ -39,6 +39,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	err = database.StartConsumer(conn, "todo.events")
+	if err != nil {
+		panic(err)
+	}
+
 
 	db, err := database.OpenMySQL(cfg.MySQLDSN)
 	if err != nil {

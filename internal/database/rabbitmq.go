@@ -94,3 +94,36 @@ func ConsumeMessage(conn *amqp.Connection, queue string) ([]byte, error) {
 	return msg.Body, err
 
 }
+
+func StartConsumer(conn *amqp.Connection, queue string) error {
+	ch, err := conn.Channel()
+	if err != nil {
+		return fmt.Errorf("failed to open channel: %w", err)
+	}
+
+	msgs, err := ch.Consume(
+		queue,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		_ = ch.Close()
+		return fmt.Errorf("failed to consume message: %w", err)
+	}
+
+	go func() {
+		defer ch.Close()
+		for msg := range msgs {
+			fmt.Printf("Received message: %s\n", msg.Body)
+			if err := msg.Ack(false); err != nil {
+				fmt.Printf("failed to ack message: %v\n", err)
+			}
+		}
+	}()
+
+	return nil
+}
