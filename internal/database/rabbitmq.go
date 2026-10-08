@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"encoding/json"
 )
 
 type RabbitMQ struct {
@@ -119,9 +120,21 @@ func StartConsumer(conn *amqp.Connection, queue string) error {
 		defer ch.Close()
 		for msg := range msgs {
 			fmt.Printf("Received message: %s\n", msg.Body)
-			if err := msg.Ack(false); err != nil {
-				fmt.Printf("failed to ack message: %v\n", err)
+			
+			var todo struct {
+				ID int `json:"id"`
+				Title string `json:"title"`
 			}
+			err := json.Unmarshal(msg.Body, &todo)
+			
+			if err != nil {
+				fmt.Printf("failed to unmarshal message: %v\n", err)
+				fmt.Printf("message: %s\n", msg.Body)
+				msg.Nack(false, false)
+				continue
+			}
+			fmt.Printf("Todo: %+v\n", todo)
+		msg.Ack(false)
 		}
 	}()
 
