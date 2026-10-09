@@ -118,6 +118,7 @@
 - [x] `database.StartConsumer`：goroutine 中 `range` + `Ack`；`main` 声明队列后启动。创建 Todo（如 id=82）后队列 Ready/Unacked 均为 0；进程应打印 `Received message: ...`。
 - [x] 消费循环：JSON 成功则打印并 `Ack`；失败则 `Nack(false, false)` + `continue`。验证：合法 Todo（id=83）被消费；非法 `not-json` 入队后 Ready/Unacked 仍为 0（丢弃不重试）。
 - [x] 进程内 `map[int]struct{}` 幂等：同一 `id` 第二次只打 Duplicate 并 Ack。验证：连发两次 `{"id":99,"title":"dup"}`，第一次 `Todo: {ID:99 Title:dup}`，第二次 `Duplicate message`；队列 Ready/Unacked 为 0。
+- [x] Redis 幂等：`StartConsumer` 注入 `*redis.Client`；key `todo:event:{id}`，`Exists` 判重，`Set` TTL 24h；nil 时回退内存 `seen`。验证：id=1001 连发两次，先 Todo 后 Duplicate；Redis `GET todo:event:1001` = `1`，TTL≈24h。
 
 ## 最近验证
 
@@ -384,7 +385,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-进程内幂等已通（同一 todo `id` 第二次跳过并 Ack）。局限：重启进程 `seen` 会丢。下一步可选：把已处理 id 落到 Redis/MySQL，或 TraceID/日志；先别上复杂业务副作用。
+Redis 幂等已通（`todo:event:{id}`，TTL 24h）。下一步：TraceID + 结构化日志，或应用 Docker 化；MQ 业务副作用可稍后再加。
 
 ## 跨设备与跨 Agent 续接
 

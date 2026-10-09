@@ -39,7 +39,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = database.StartConsumer(conn, "todo.events")
+	err = database.StartConsumer(conn, "todo.events",redis)
 	if err != nil {
 		panic(err)
 	}

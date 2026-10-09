@@ -4,6 +4,9 @@ import (
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"encoding/json"
+	"github.com/redis/go-redis/v9"
+	"context"
+	"time"
 )
 
 type RabbitMQ struct {
@@ -96,7 +99,7 @@ func ConsumeMessage(conn *amqp.Connection, queue string) ([]byte, error) {
 
 }
 
-func StartConsumer(conn *amqp.Connection, queue string) error {
+func StartConsumer(conn *amqp.Connection, queue string,redisClient *redis.Client) error {
 	ch, err := conn.Channel()
 	if err != nil {
 		return fmt.Errorf("failed to open channel: %w", err)
@@ -119,34 +122,55 @@ func StartConsumer(conn *amqp.Connection, queue string) error {
 	go func() {
 		defer ch.Close()
 
-		seen:=make(map[int]struct{})
+		seen := make(map[int]struct{})
 		for msg := range msgs {
 			fmt.Printf("Received message: %s\n", msg.Body)
-		
-
 
 			var todo struct {
-				ID int `json:"id"`
+				ID    int    `json:"id"`
 				Title string `json:"title"`
 			}
 			err := json.Unmarshal(msg.Body, &todo)
-			
 			if err != nil {
 				fmt.Printf("failed to unmarshal message: %v\n", err)
 				fmt.Printf("message: %s\n", msg.Body)
-				msg.Nack(false, false)
+				_ = msg.Nack(false, false)
 				continue
 			}
-			_,ok:=seen[todo.ID]
 
-			if ok{
-				fmt.Printf("Duplicate message: %s\n", msg.Body)
-				msg.Ack(false)
+			if redisClient == nil {
+				if _, ok := seen[todo.ID]; ok {
+					fmt.Printf("Duplicate message: %s\n", msg.Body)
+					_ = msg.Ack(false)
+					continue
+				}
+				seen[todo.ID] = struct{}{}
+				fmt.Printf("Todo: %+v\n", todo)
+				_ = msg.Ack(false)
 				continue
 			}
-			seen[todo.ID]=struct{}{}
+
+			key := fmt.Sprintf("todo:event:%d", todo.ID)
+			ctx := context.Background()
+			n, err := redisClient.Exists(ctx, key).Result()
+			if err != nil {
+				fmt.Printf("failed to check redis key: %v\n", err)
+				_ = msg.Nack(false, true)
+				continue
+			}
+			if n > 0 {
+				fmt.Printf("Duplicate message: %s\n", msg.Body)
+				_ = msg.Ack(false)
+				continue
+			}
+
 			fmt.Printf("Todo: %+v\n", todo)
-		msg.Ack(false)
+			if err := redisClient.Set(ctx, key, "1", 24*time.Hour).Err(); err != nil {
+				fmt.Printf("failed to set redis key: %v\n", err)
+				_ = msg.Nack(false, true)
+				continue
+			}
+			_ = msg.Ack(false)
 		}
 	}()
 
