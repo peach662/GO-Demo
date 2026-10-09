@@ -118,9 +118,13 @@ func StartConsumer(conn *amqp.Connection, queue string) error {
 
 	go func() {
 		defer ch.Close()
+
+		seen:=make(map[int]struct{})
 		for msg := range msgs {
 			fmt.Printf("Received message: %s\n", msg.Body)
-			
+		
+
+
 			var todo struct {
 				ID int `json:"id"`
 				Title string `json:"title"`
@@ -133,6 +137,14 @@ func StartConsumer(conn *amqp.Connection, queue string) error {
 				msg.Nack(false, false)
 				continue
 			}
+			_,ok:=seen[todo.ID]
+
+			if ok{
+				fmt.Printf("Duplicate message: %s\n", msg.Body)
+				msg.Ack(false)
+				continue
+			}
+			seen[todo.ID]=struct{}{}
 			fmt.Printf("Todo: %+v\n", todo)
 		msg.Ack(false)
 		}
