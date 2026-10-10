@@ -119,6 +119,10 @@
 - [x] 消费循环：JSON 成功则打印并 `Ack`；失败则 `Nack(false, false)` + `continue`。验证：合法 Todo（id=83）被消费；非法 `not-json` 入队后 Ready/Unacked 仍为 0（丢弃不重试）。
 - [x] 进程内 `map[int]struct{}` 幂等：同一 `id` 第二次只打 Duplicate 并 Ack。验证：连发两次 `{"id":99,"title":"dup"}`，第一次 `Todo: {ID:99 Title:dup}`，第二次 `Duplicate message`；队列 Ready/Unacked 为 0。
 - [x] Redis 幂等：`StartConsumer` 注入 `*redis.Client`；key `todo:event:{id}`，`Exists` 判重，`Set` TTL 24h；nil 时回退内存 `seen`。验证：id=1001 连发两次，先 Todo 后 Duplicate；Redis `GET todo:event:1001` = `1`，TTL≈24h。
+- [x] `internal/trace`：中间件读/生成 `X-Request-ID`，写入响应头、`c.Set` 与 request context；`newRouter` 中 `r.Use(trace.Middleware())`。`curl.exe -i` 验证自带头与自动生成。
+- [x] `trace.IDFromContext` + `/health` 使用 `slog.Info(..., "trace_id", ...)`。验证：请求头 `X-Request-ID: my-test-id` 时日志出现 `INFO health ok trace_id=my-test-id`。
+- [x] `POST /todos`：入口 `slog.Info`；绑定/类型/Create 失败路径在 `c.JSON` 前 `slog.Error`（含 `trace_id`、`error`）；成功再 `slog.Info`。`go build .` 通过。
+- [x] `PATCH /todos/:id`：同样接 TraceID + slog；非法流转/404 用 Info，500 用 Error；成功只打 `todo_id`。`go build .` 通过。
 
 ## 最近验证
 
@@ -385,7 +389,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-Redis 幂等已通（`todo:event:{id}`，TTL 24h）。下一步：TraceID + 结构化日志，或应用 Docker 化；MQ 业务副作用可稍后再加。
+写路径 TraceID + slog 已齐（Create / PATCH）。下一步：应用 Docker 化，或把只读接口（List/Get）也接上轻量日志。先别上复杂 MQ 业务副作用。
 
 ## 跨设备与跨 Agent 续接
 

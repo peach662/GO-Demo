@@ -10,6 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"strconv"
+	"awesomeProject/internal/trace"
+	"log/slog"
 )
 
 // TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
@@ -65,6 +67,7 @@ func main() {
 
 func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT, redis *redis.Client) *gin.Engine {
 	r := gin.Default()
+	r.Use(trace.Middleware())
 	// ... (路由定义)
 	r.GET("/users/me", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
 		userID, ok := c.Get(auth.ContextUserIDKey)
@@ -282,6 +285,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		})
 	})
 	r.POST("/todos", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
+		slog.Info("create todo", "trace_id", trace.IDFromContext(c.Request.Context()))
 		userID, ok := c.Get(auth.ContextUserIDKey)
 		if !ok {
 			c.JSON(401, gin.H{
@@ -293,6 +297,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		}
 		userIDInt, ok := userID.(int)
 		if !ok {
+			slog.Error("user id must be a number", "trace_id", trace.IDFromContext(c.Request.Context()))
 			c.JSON(401, gin.H{
 				"code":    401,
 				"message": "用户ID必须是数字",
@@ -302,6 +307,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		}
 		var req todo.CreateTodoRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
+			slog.Error("request body error", "trace_id", trace.IDFromContext(c.Request.Context()), "error", err)
 			c.JSON(400, gin.H{
 				"code":    400,
 				"message": "请求参数错误",
@@ -312,6 +318,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 
 		newTodo, err := service.Create(c.Request.Context(), req.Title, userIDInt)
 		if err != nil {
+			slog.Error("create todo failed", "trace_id", trace.IDFromContext(c.Request.Context()), "error", err)
 			c.JSON(500, gin.H{
 				"code":    500,
 				"message": "服务内部错误",
@@ -319,6 +326,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
+		slog.Info("create todo success", "trace_id", trace.IDFromContext(c.Request.Context()), "todo", newTodo)
 		c.JSON(200, gin.H{
 			"code":    0,
 			"message": "ok",
@@ -326,7 +334,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		})
 	})
 	r.PATCH("/todos/:id", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
-
+		slog.Info("update todo status", "trace_id", trace.IDFromContext(c.Request.Context()))
 		userID, ok := c.Get(auth.ContextUserIDKey)
 		if !ok {
 			c.JSON(401, gin.H{
@@ -338,6 +346,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		}
 		userIDInt, ok := userID.(int)
 		if !ok {
+			slog.Error("user id must be a number", "trace_id", trace.IDFromContext(c.Request.Context()))
 			c.JSON(401, gin.H{
 				"code":    401,
 				"message": "用户ID必须是数字",
@@ -347,6 +356,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		}
 		var req todo.UpdateTodoStatusRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
+			slog.Error("request body error", "trace_id", trace.IDFromContext(c.Request.Context()), "error", err)
 			c.JSON(400, gin.H{
 				"code":    400,
 				"message": "请求参数错误",
@@ -357,6 +367,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
+			slog.Error("id must be a number", "trace_id", trace.IDFromContext(c.Request.Context()), "error", err)
 			c.JSON(400, gin.H{
 				"code":    400,
 				"message": "id 必须是数字",
@@ -367,6 +378,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		updatedTodo, found, err := service.UpdateStatus(c.Request.Context(), id, *req.Status, userIDInt)
 		if err != nil {
 			if errors.Is(err, todo.ErrInvalidTransition) {
+				slog.Info("invalid status transition", "trace_id", trace.IDFromContext(c.Request.Context()), "todo_id", id, "error", err)
 				c.JSON(400, gin.H{
 					"code":    400,
 					"message": "非法状态流转",
@@ -374,6 +386,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 				})
 				return
 			}
+			slog.Error("update todo status failed", "trace_id", trace.IDFromContext(c.Request.Context()), "todo_id", id, "error", err)
 			c.JSON(500, gin.H{
 				"code":    500,
 				"message": "服务内部错误",
@@ -382,6 +395,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			return
 		}
 		if !found {
+			slog.Info("todo not found", "trace_id", trace.IDFromContext(c.Request.Context()), "todo_id", id)
 			c.JSON(404, gin.H{
 				"code":    404,
 				"message": "todo 不存在",
@@ -389,6 +403,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
+		slog.Info("update todo status success", "trace_id", trace.IDFromContext(c.Request.Context()), "todo_id", updatedTodo.ID)
 		c.JSON(200, gin.H{
 			"code":    0,
 			"message": "ok",
@@ -396,6 +411,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 		})
 	})
 	r.GET("/health", func(c *gin.Context) {
+		slog.Info("health ok", "trace_id", trace.IDFromContext(c.Request.Context()))
 		if redis != nil {
 			err := redis.Ping(c.Request.Context()).Err()
 			if err != nil {
