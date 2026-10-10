@@ -123,6 +123,8 @@
 - [x] `trace.IDFromContext` + `/health` 使用 `slog.Info(..., "trace_id", ...)`。验证：请求头 `X-Request-ID: my-test-id` 时日志出现 `INFO health ok trace_id=my-test-id`。
 - [x] `POST /todos`：入口 `slog.Info`；绑定/类型/Create 失败路径在 `c.JSON` 前 `slog.Error`（含 `trace_id`、`error`）；成功再 `slog.Info`。`go build .` 通过。
 - [x] `PATCH /todos/:id`：同样接 TraceID + slog；非法流转/404 用 Info，500 用 Error；成功只打 `todo_id`。`go build .` 通过。
+- [x] 多阶段 `Dockerfile`（builder `golang:1.25-alpine` + runtime `alpine`）；CN 构建加 `GOPROXY=https://goproxy.cn,direct`。已推送 `249c6b9`。
+- [ ] 服务器 `docker build`：首次因 `proxy.golang.org` 超时失败；加 GOPROXY 后构建超时；随后 SSH banner 超时（主机可 ping，疑似构建占满资源）。部署验证待服务器恢复后继续。
 
 ## 最近验证
 
@@ -389,7 +391,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-写路径 TraceID + slog 已齐（Create / PATCH）。下一步：应用 Docker 化，或把只读接口（List/Get）也接上轻量日志。先别上复杂 MQ 业务副作用。
+Dockerfile 已入库。下一步：服务器恢复 SSH 后完成 `docker build` / `docker run`（`--network host` + 本机中间件地址）并用 `/health` 验证；或改为本机交叉编译二进制再上传运行，避开服务器内 `go mod download`。
 
 ## 跨设备与跨 Agent 续接
 
