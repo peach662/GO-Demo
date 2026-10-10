@@ -2,6 +2,9 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
+# Tencent Cloud / CN networks often cannot reach proxy.golang.org.
+ENV GOPROXY=https://goproxy.cn,direct
+
 COPY go.mod go.sum ./
 
 RUN go mod download && go mod verify
