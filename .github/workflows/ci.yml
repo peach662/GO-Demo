@@ -85,8 +85,16 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          # 去掉 Windows 粘贴可能带入的 CR；私钥必须是 BEGIN.*PRIVATE KEY 那段
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/deploy_key; then
+            echo "DEPLOY_SSH_KEY does not look like a private key (missing BEGIN PRIVATE KEY)"
+            exit 1
+          fi
+          ssh-keygen -y -f ~/.ssh/deploy_key > /tmp/deploy.pub
+          echo "Deploy key fingerprint:"
+          ssh-keygen -lf /tmp/deploy.pub
           ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Upload image and compose
