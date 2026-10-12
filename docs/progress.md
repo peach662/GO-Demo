@@ -396,7 +396,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-CI 测试门已加。下一步：看 Actions 是否变绿；通过后可加「打镜像推 GHCR」或部署步骤。先别上复杂 MQ 业务副作用。
+正在接 CD：`Publish image`（GHCR）+ `Deploy`（SSH）。先在 GitHub 配好 `DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_SSH_KEY`，再推送含新 `ci.yml` 的提交。
 
 ## 跨设备与跨 Agent 续接
 

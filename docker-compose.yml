@@ -2,10 +2,10 @@
 # MySQL 服务带 profile manual：普通 up 不会创建第二个 MySQL。
 # API 服务带 profile api：在服务器上用 compose 固化现在的 docker run。
 #
-# 服务器部署（需已有镜像或允许 build；.env 用 127.0.0.1 连本机中间件）：
-#   sudo docker compose --profile api up -d --build
-# 仅重启已有镜像：
+# 服务器部署（.env 用 127.0.0.1 连本机中间件）：
+#   sudo docker compose --profile api pull
 #   sudo docker compose --profile api up -d
+# 镜像由 GitHub Actions 推到 GHCR：ghcr.io/peach662/go-demo:latest
 services:
   mysql:
     image: mysql:8.0
@@ -25,10 +25,7 @@ services:
 
   api:
     profiles: ["api"]
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: awesome-project:api
+    image: ghcr.io/peach662/go-demo:latest
     container_name: awesome-api
     # 与当前手敲部署一致：直接用宿主机网络访问本机 33603/36379/35672。
     # Windows 本机 Docker Desktop 上 host 网络行为不同，API 请在 Linux 服务器上起。
