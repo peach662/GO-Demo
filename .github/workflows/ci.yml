@@ -110,18 +110,6 @@ jobs:
       packages: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Upload compose file
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: docker-compose.yml
-          target: /home/ubuntu/GO-Demo/
-
       - name: Pull image and restart
         uses: appleboy/ssh-action@v1.2.2
         env:
@@ -132,12 +120,15 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
           envs: GHCR_TOKEN,GHCR_USER,IMAGE
           script: |
             set -euo pipefail
-            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            mkdir -p "$HOME/GO-Demo"
             cd "$HOME/GO-Demo"
+            curl -fsSL -o docker-compose.yml "https://raw.githubusercontent.com/peach662/GO-Demo/main/docker-compose.yml"
             test -f .env || { echo "missing ~/GO-Demo/.env"; exit 1; }
+            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
             sudo docker pull "$IMAGE"
             sudo docker compose --profile api up -d
             sudo docker ps --filter name=awesome-api --format '{{.Names}} {{.Image}} {{.Status}}'
