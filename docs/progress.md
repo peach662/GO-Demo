@@ -396,7 +396,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-正在接 CD：`Publish image`（GHCR）+ `Deploy`（SSH）。先在 GitHub 配好 `DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_SSH_KEY`，再推送含新 `ci.yml` 的提交。
+已推送 CD 流水线（`c533ad3`）。下一步：在 Actions 确认 Test → Publish image → Deploy 全绿，并验证 `https://app.persicatao.top/health`。
 
 ## 跨设备与跨 Agent 续接
 
