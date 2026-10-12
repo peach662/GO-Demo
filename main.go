@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"awesomeProject/internal/trace"
 	"log/slog"
+	_ "net/http/pprof"
+	"net/http"
 )
 
 // TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
@@ -60,6 +62,11 @@ func main() {
 	userService := user.NewService(userRepo)
 
 	r := newRouter(service, userService, jwtService, redis)
+	go func() {
+		if err := http.ListenAndServe("127.0.0.1:6060", nil); err != nil {
+			slog.Error("pprof listen failed", "error", err)
+		}
+	}()
 	if err := r.Run(":9090"); err != nil {
 		panic(err)
 	}

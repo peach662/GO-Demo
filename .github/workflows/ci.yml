@@ -1,0 +1,66 @@
+# 最小质量门：PR / 推 main 时跑测试。
+# 集成测试用 workflow 里的 MySQL，不连学习服务器上的库。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root123
+          MYSQL_DATABASE: awesome_project
+          MYSQL_USER: app
+          MYSQL_PASSWORD: app123
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot123"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      # godotenv 默认不覆盖已存在的环境变量，CI 里这些会优先生效。
+      MYSQL_DSN: app:app123@tcp(127.0.0.1:3306)/awesome_project?charset=utf8mb4&parseTime=true&loc=UTC
+      JWT_SECRET: ci-jwt-secret
+      REDIS_ADDR: 127.0.0.1:6379
+      RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Apply migrations
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mysql-client
+          for f in migrations/*.sql; do
+            echo "apply $f"
+            mysql -h127.0.0.1 -P3306 -uapp -papp123 awesome_project < "$f"
+          done
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -race -count=1 ./...

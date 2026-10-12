@@ -128,6 +128,8 @@
 - [x] 服务器 Nginx：`app.persicatao.top:80` → `127.0.0.1:9090`；Cloudflare 橙云 + SSL Flexible。验证：`https://app.persicatao.top/health` → 200 `pong`（`Server: cloudflare`）。
 - [x] `docker-compose.yml` 增加 `api`（profile `api`，`network_mode: host`，`env_file: .env`）；`docs/middleware.md` 补充服务器 Compose 部署说明。
 - [x] 服务器已用 Compose 接管 `awesome-api`（镜像 `awesome-project:api`）。本机/公网 `https://app.persicatao.top/health` → 200。
+- [x] 本机 pprof：`127.0.0.1:6060` + `_ "net/http/pprof"`；`go tool pprof .../profile?seconds=10` 后 `top` 可读（空闲时多为 `runtime.*`）。
+- [x] GitHub Actions：`.github/workflows/ci.yml`（push/PR → MySQL service + migrations + `go test -race`）。
 
 ## 最近验证
 
@@ -394,7 +396,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-Compose 部署已验证。下一步：给 `net/http/pprof` 接只读诊断，或接 GitHub Actions / 简易 CI 做镜像构建；先别上复杂 MQ 业务副作用。
+本机 pprof 已练通（`127.0.0.1:6060` + `go tool pprof` + `top`）。下一步：GitHub Actions 简易 CI（`go test` / 镜像构建），或堆 `heap` 再看一眼后收工。先别上复杂 MQ 业务副作用。
 
 ## 跨设备与跨 Agent 续接
 
