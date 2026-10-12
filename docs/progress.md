@@ -127,6 +127,7 @@
 - [x] 服务器部署：本机交叉编译二进制 + `Dockerfile.runtime` 打 `awesome-project:runtime`；容器 `awesome-api`（`--network host`，连本机 MySQL/Redis/RabbitMQ）。`GET /health` 返回 200，`X-Request-Id` 回传。
 - [x] 服务器 Nginx：`app.persicatao.top:80` → `127.0.0.1:9090`；Cloudflare 橙云 + SSL Flexible。验证：`https://app.persicatao.top/health` → 200 `pong`（`Server: cloudflare`）。
 - [x] `docker-compose.yml` 增加 `api`（profile `api`，`network_mode: host`，`env_file: .env`）；`docs/middleware.md` 补充服务器 Compose 部署说明。
+- [x] 服务器已用 Compose 接管 `awesome-api`（镜像 `awesome-project:api`）。本机/公网 `https://app.persicatao.top/health` → 200。
 
 ## 最近验证
 
@@ -393,7 +394,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-Compose 已写好 API 服务。下一步：在服务器用 `docker compose --profile api up -d --build` 验证替换手敲 `docker run`；或给 `net/http/pprof` 接只读诊断。先别上复杂 MQ 业务副作用。
+Compose 部署已验证。下一步：给 `net/http/pprof` 接只读诊断，或接 GitHub Actions / 简易 CI 做镜像构建；先别上复杂 MQ 业务副作用。
 
 ## 跨设备与跨 Agent 续接
 
