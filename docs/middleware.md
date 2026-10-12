@@ -58,34 +58,34 @@ GET https://app.persicatao.top/health
 
 ## 用 Compose 起 API（服务器）
 
-`docker-compose.yml` 里的 `api` 服务对应现在的 `awesome-api` 容器（`network_mode: host` + `.env`）。镜像来自 GHCR：`ghcr.io/peach662/go-demo:latest`。
+`docker-compose.yml` 里的 `api` 服务对应现在的 `awesome-api` 容器（`network_mode: host` + `.env`）。镜像名：`go-demo:latest`（由 Actions `docker load` 写入，**服务器不必访问 GHCR/GitHub**）。
 
-1. 服务器上的 `.env` 把中间件地址改成环回（和 host 网络配套），例如：
+1. 服务器上的 `.env` 把中间件地址改成环回，例如：
    - `MYSQL_DSN=...@tcp(127.0.0.1:33603)/awesome_project?...`
    - `REDIS_ADDR=127.0.0.1:36379`
    - `RABBITMQ_URL=amqp://app:app123@127.0.0.1:35672/`
-2. 登录 GHCR（私有包需要；Actions 部署时会自动 login）后：
+2. 正常由 CI 部署；若手动：
 
 ```bash
 cd ~/GO-Demo
-sudo docker compose --profile api pull
 sudo docker compose --profile api up -d
 ```
 
-Nginx 仍反代 `80 → 127.0.0.1:9090`，Compose 不负责域名。
+Nginx 仍反代 `80 → 127.0.0.1:9090`。
 
 ## GitHub Actions 自动部署所需 Secrets
 
-仓库 **Settings → Secrets and variables → Actions** 新增：
+仓库 **Settings → Secrets and variables → Actions**：
 
 | Name | 值 |
 |------|-----|
 | `DEPLOY_HOST` | `124.221.130.183` |
 | `DEPLOY_USER` | `ubuntu` |
-| `DEPLOY_SSH_KEY` | 本机登录该服务器用的**私钥**全文（含 `BEGIN`/`END` 行） |
+| `DEPLOY_SSH_KEY` | 登录服务器用的**私钥**全文 |
 
-推送到 `main` 后流水线顺序：`Test` → `Publish image`（GHCR）→ `Deploy`（scp compose + SSH pull/up）。  
-`GITHUB_TOKEN` 由 Actions 自动提供，用于推/拉本仓库的 GHCR 包，不必手建。
+推 `main` 后：`Test` → `Deploy`（Actions 上 `docker build` → `scp` 镜像 tar → 服务器 `docker load` + `compose up`）。
+
+**安全组：** 入站 TCP **22** 需允许 GitHub Actions 访问（学习可临时 `0.0.0.0/0`），否则 Deploy 的 SSH 会失败。
 
 ## 和 Cursor skill 的关系
 

@@ -1,4 +1,4 @@
-# CI/CD：测试 →（仅 main push）打镜像推 GHCR → SSH 部署服务器
+# CI/CD：测试 →（仅 main push）在 Actions 构建镜像，经 SSH 传到服务器 docker load（服务器无需访问 GHCR）
 name: CI
 
 on:
@@ -10,8 +10,7 @@ permissions:
   contents: read
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: peach662/go-demo
+  IMAGE: go-demo:latest
 
 jobs:
   test:
@@ -67,69 +66,56 @@ jobs:
       - name: Test
         run: go test -race -count=1 ./...
 
-  publish:
-    name: Publish image
+  deploy:
+    name: Deploy
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image
+        run: docker build -t "$IMAGE" -f Dockerfile .
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Save image tarball
+        run: docker save "$IMAGE" -o go-demo.tar
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
-  deploy:
-    name: Deploy
-    needs: publish
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-
-    steps:
-      - name: Pull image and restart
-        uses: appleboy/ssh-action@v1.2.2
+      - name: Upload image and compose
         env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          command_timeout: 15m
-          envs: GHCR_TOKEN,GHCR_USER,IMAGE
-          script: |
-            set -euo pipefail
-            mkdir -p "$HOME/GO-Demo"
-            cd "$HOME/GO-Demo"
-            curl -fsSL -o docker-compose.yml "https://raw.githubusercontent.com/peach662/GO-Demo/main/docker-compose.yml"
-            test -f .env || { echo "missing ~/GO-Demo/.env"; exit 1; }
-            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
-            sudo docker pull "$IMAGE"
-            sudo docker compose --profile api up -d
-            sudo docker ps --filter name=awesome-api --format '{{.Names}} {{.Image}} {{.Status}}'
-            curl -fsS -H 'Host: app.persicatao.top' http://127.0.0.1/health
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$USER@$HOST" 'mkdir -p /tmp/go-demo-deploy "$HOME/GO-Demo"'
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            go-demo.tar docker-compose.yml \
+            "$USER@$HOST:/tmp/go-demo-deploy/"
+
+      - name: Load image and restart
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$USER@$HOST" 'bash -s' <<'EOF'
+          set -euo pipefail
+          sudo docker load -i /tmp/go-demo-deploy/go-demo.tar
+          cp /tmp/go-demo-deploy/docker-compose.yml "$HOME/GO-Demo/docker-compose.yml"
+          cd "$HOME/GO-Demo"
+          test -f .env || { echo "missing ~/GO-Demo/.env"; exit 1; }
+          sudo docker compose --profile api up -d
+          sudo docker ps --filter name=awesome-api --format '{{.Names}} {{.Image}} {{.Status}}'
+          curl -fsS -H 'Host: app.persicatao.top' http://127.0.0.1/health
+          rm -f /tmp/go-demo-deploy/go-demo.tar
+          EOF

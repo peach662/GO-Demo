@@ -396,7 +396,7 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-已推送 CD 流水线（`c533ad3`）。下一步：在 Actions 确认 Test → Publish image → Deploy 全绿，并验证 `https://app.persicatao.top/health`。
+CD 改为 Actions 构建 + SSH `docker load`（避开服务器拉 GHCR）。确认安全组放行 22 后推送，看 Deploy 是否变绿。
 
 ## 跨设备与跨 Agent 续接
 
