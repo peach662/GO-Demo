@@ -1,7 +1,11 @@
-# 不要在本机执行 docker compose up。
-# MySQL 已经在服务器容器 mysql-33603 里运行，主机端口是 33603。
-# 应用连接串写在 .env.example 的 MYSQL_DSN。没有 .env 时，程序会读取 .env.example。
-# 这个服务带了 profile，普通 docker compose up 不会启动它，避免再创建一个 MySQL。
+# 中间件（MySQL/Redis/RabbitMQ）已在服务器单独运行，不要用本文件再起一套库。
+# MySQL 服务带 profile manual：普通 up 不会创建第二个 MySQL。
+# API 服务带 profile api：在服务器上用 compose 固化现在的 docker run。
+#
+# 服务器部署（需已有镜像或允许 build；.env 用 127.0.0.1 连本机中间件）：
+#   sudo docker compose --profile api up -d --build
+# 仅重启已有镜像：
+#   sudo docker compose --profile api up -d
 services:
   mysql:
     image: mysql:8.0
@@ -18,3 +22,17 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
+
+  api:
+    profiles: ["api"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: awesome-project:api
+    container_name: awesome-api
+    # 与当前手敲部署一致：直接用宿主机网络访问本机 33603/36379/35672。
+    # Windows 本机 Docker Desktop 上 host 网络行为不同，API 请在 Linux 服务器上起。
+    network_mode: host
+    restart: unless-stopped
+    env_file:
+      - .env

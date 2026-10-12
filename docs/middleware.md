@@ -48,7 +48,31 @@ RabbitMQ 默认学习账号（容器环境变量）：用户 `app`，密码与 M
 GET http://localhost:9090/health
 ```
 
+公网（Nginx + Cloudflare）：
+
+```text
+GET https://app.persicatao.top/health
+```
+
 会 Ping Redis：失败时 HTTP `503`。MySQL 在进程启动时已 `Ping`，连不上会直接启动失败。
+
+## 用 Compose 起 API（服务器）
+
+`docker-compose.yml` 里的 `api` 服务对应现在的 `awesome-api` 容器（`network_mode: host` + `.env`）。
+
+1. 代码放到服务器（或 `git pull`）。
+2. 服务器上的 `.env` 把中间件地址改成环回（和 host 网络配套），例如：
+   - `MYSQL_DSN=...@tcp(127.0.0.1:33603)/awesome_project?...`
+   - `REDIS_ADDR=127.0.0.1:36379`
+   - `RABBITMQ_URL=amqp://app:app123@127.0.0.1:35672/`
+3. 启动：
+
+```bash
+cd ~/GO-Demo   # 或你的代码目录
+sudo docker compose --profile api up -d --build
+```
+
+Nginx 仍反代 `80 → 127.0.0.1:9090`，Compose 不负责域名。不要对本机 Windows 用 `network_mode: host` 当服务器部署。
 
 ## 和 Cursor skill 的关系
 
