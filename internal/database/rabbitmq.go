@@ -122,35 +122,39 @@ func StartConsumer(conn *amqp.Connection, queue string,redisClient *redis.Client
 	go func() {
 		defer ch.Close()
 
-		seen := make(map[int]struct{})
+		seen := make(map[string]struct{})
 		for msg := range msgs {
 			fmt.Printf("Received message: %s\n", msg.Body)
 
-			var todo struct {
+			var  eventTodo struct {
+				EventType string `json:"event_type"`
+				Todo struct {
 				ID    int    `json:"id"`
 				Title string `json:"title"`
+				} `json:"todo"`
+			
 			}
-			err := json.Unmarshal(msg.Body, &todo)
+			err := json.Unmarshal(msg.Body, &eventTodo)
 			if err != nil {
 				fmt.Printf("failed to unmarshal message: %v\n", err)
 				fmt.Printf("message: %s\n", msg.Body)
 				_ = msg.Nack(false, false)
 				continue
 			}
-
+			key := fmt.Sprintf("todo:event:%s:%d", eventTodo.EventType, eventTodo.Todo.ID)
 			if redisClient == nil {
-				if _, ok := seen[todo.ID]; ok {
+				if _, ok := seen[key]; ok {
 					fmt.Printf("Duplicate message: %s\n", msg.Body)
 					_ = msg.Ack(false)
 					continue
 				}
-				seen[todo.ID] = struct{}{}
-				fmt.Printf("Todo: %+v\n", todo)
+				seen[key] = struct{}{}
+				fmt.Printf("EventType: %s, Todo: %+v\n", eventTodo.EventType, eventTodo.Todo)
 				_ = msg.Ack(false)
 				continue
 			}
 
-			key := fmt.Sprintf("todo:event:%d", todo.ID)
+			
 			ctx := context.Background()
 			n, err := redisClient.Exists(ctx, key).Result()
 			if err != nil {
@@ -164,8 +168,8 @@ func StartConsumer(conn *amqp.Connection, queue string,redisClient *redis.Client
 				continue
 			}
 
-			fmt.Printf("Todo: %+v\n", todo)
-			if err := redisClient.Set(ctx, key, "1", 24*time.Hour).Err(); err != nil {
+			fmt.Printf("EventType: %s, Todo: %+v\n", eventTodo.EventType, eventTodo.Todo)
+			if err := redisClient.Set(ctx, key, eventTodo.EventType, 24*time.Hour).Err(); err != nil {
 				fmt.Printf("failed to set redis key: %v\n", err)
 				_ = msg.Nack(false, true)
 				continue

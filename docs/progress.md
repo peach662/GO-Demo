@@ -396,7 +396,9 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-CD 改为 Actions 构建 + SSH `docker load`（避开服务器拉 GHCR）。确认安全组放行 22 后推送，看 Deploy 是否变绿。
+MQ 消息已带 `event_type`（created / status_changed），消费者按类型打印且幂等 key 含事件类型。CI 已加 golangci-lint，Deploy 依赖 Test+Lint。
+
+下一步：消费者对 `status_changed`「真做事」（简单审计/通知，仍保持简单）；推送后看 Lint 是否首次变绿并修报错。
 
 ## 跨设备与跨 Agent 续接
 

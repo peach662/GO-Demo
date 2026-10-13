@@ -16,6 +16,9 @@ type Service struct {
 	msg   *amqp.Connection
 }
 
+const CREATE_TODO_EVENT = "created"
+const UPDATE_TODO_EVENT = "status_changed"
+
 func NewService(repo Repository, redis *redis.Client,msg *amqp.Connection) *Service {
 	return &Service{
 		repo:  repo,
@@ -102,7 +105,8 @@ func (s *Service) Create(ctx context.Context, title string, userID int) (Todo, e
 	}
 
 	if s.msg != nil {
-		body, err := json.Marshal(todo)
+		event := EventTodo{EventType:CREATE_TODO_EVENT, Todo:todo}
+		body, err := json.Marshal(event)
 		if err != nil {
 			return todo, err
 		}
@@ -135,11 +139,20 @@ func (s *Service) UpdateStatus(ctx context.Context, id int, status Status, userI
 	}
 	key := fmt.Sprintf("todo:%d:%d", userID, id)
 	listKey := fmt.Sprintf("todos:%d", userID)
-	if s.redis == nil {
-		return updated, true, nil
+	if s.redis != nil {
+		_ = s.redis.Del(ctx, key, listKey).Err()
 	}
 
-	_ = s.redis.Del(ctx, key, listKey).Err()
+		if s.msg !=nil{
+		event := EventTodo{EventType:UPDATE_TODO_EVENT, Todo:updated}
+		body, err := json.Marshal(event)
+		if err != nil {
+			return updated, true, err
+		}
+		if err := database.PublishMessage(s.msg, "todo.events", body); err != nil {
+			return updated, true, err
+		}
+	}
 	return updated, true, nil
 
 }
