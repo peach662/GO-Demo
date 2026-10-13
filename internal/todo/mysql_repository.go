@@ -40,7 +40,7 @@ func (r *MySQLRepository) List(ctx context.Context, userID int) ([]Todo, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	todos := make([]Todo, 0)
 	for rows.Next() {
@@ -103,7 +103,7 @@ func (r *MySQLRepository) UpdateStatus(
 	if err != nil {
 		return Todo{}, false, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	const selectQuery = `SELECT id,title,status,user_id FROM todos WHERE id = ? AND user_id = ? FOR UPDATE`
 	item, err := scanTodo(tx.QueryRowContext(ctx, selectQuery, id, userID))

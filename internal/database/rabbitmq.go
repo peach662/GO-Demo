@@ -9,11 +9,6 @@ import (
 	"time"
 )
 
-type RabbitMQ struct {
-	conn *amqp.Connection
-	ch   *amqp.Channel
-}
-
 func OpenRabbitMQ(url string) (*amqp.Connection, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -32,7 +27,7 @@ func DeclareQueue(conn *amqp.Connection, queue string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open channel: %w", err)
 	}
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 	_, err = ch.QueueDeclare(
 		queue,
 		true,
@@ -53,7 +48,7 @@ func PublishMessage(conn *amqp.Connection, queue string, message []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to open channel: %w", err)
 	}
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 	err = ch.Publish(
 		"",
 		queue,
@@ -76,7 +71,7 @@ func ConsumeMessage(conn *amqp.Connection, queue string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 
 	}
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 	msgs, err := ch.Consume(
 		queue,
 		"",
@@ -120,7 +115,7 @@ func StartConsumer(conn *amqp.Connection, queue string,redisClient *redis.Client
 	}
 
 	go func() {
-		defer ch.Close()
+		defer func() { _ = ch.Close() }()
 
 		seen := make(map[string]struct{})
 		for msg := range msgs {

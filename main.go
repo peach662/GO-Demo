@@ -31,13 +31,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer redis.Close()
+	defer func() { _ = redis.Close() }()
 
 	conn, err := database.OpenRabbitMQ(cfg.RabbitMQURL)
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	err = database.DeclareQueue(conn, "todo.events")
 	if err != nil {
@@ -53,7 +53,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	jwtService := auth.NewJWT(cfg.JWTSecret)
 
 	repo := todo.NewMySQLRepository(db)
