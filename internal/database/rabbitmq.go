@@ -144,12 +144,11 @@ func StartConsumer(conn *amqp.Connection, queue string,redisClient *redis.Client
 					continue
 				}
 				seen[key] = struct{}{}
-				fmt.Printf("EventType: %s, Todo: %+v\n", eventTodo.EventType, eventTodo.Todo)
+				handleTodoEvent(eventTodo.EventType, eventTodo.Todo.ID, eventTodo.Todo.Title)
 				_ = msg.Ack(false)
 				continue
 			}
 
-			
 			ctx := context.Background()
 			n, err := redisClient.Exists(ctx, key).Result()
 			if err != nil {
@@ -163,15 +162,27 @@ func StartConsumer(conn *amqp.Connection, queue string,redisClient *redis.Client
 				continue
 			}
 
-			fmt.Printf("EventType: %s, Todo: %+v\n", eventTodo.EventType, eventTodo.Todo)
 			if err := redisClient.Set(ctx, key, eventTodo.EventType, 24*time.Hour).Err(); err != nil {
 				fmt.Printf("failed to set redis key: %v\n", err)
 				_ = msg.Nack(false, true)
 				continue
 			}
+
+			handleTodoEvent(eventTodo.EventType, eventTodo.Todo.ID, eventTodo.Todo.Title)
 			_ = msg.Ack(false)
 		}
 	}()
 
 	return nil
+}
+
+func handleTodoEvent(eventType string, todoID int, title string) {
+	switch eventType {
+	case "created":
+		fmt.Printf("todo created: id=%d title=%q\n", todoID, title)
+	case "status_changed":
+		fmt.Printf("notify status_changed: id=%d title=%q\n", todoID, title)
+	default:
+		fmt.Printf("unknown todo event type %q: id=%d title=%q\n", eventType, todoID, title)
+	}
 }
