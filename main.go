@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	_ "net/http/pprof"
 	"net/http"
+	"awesomeProject/internal/llm"
 )
 
 // TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
@@ -55,13 +56,14 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 	jwtService := auth.NewJWT(cfg.JWTSecret)
-
+	llmClient := llm.NewClient(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.OpenAIModel)
+	llmService := llm.NewService(llmClient)
 	repo := todo.NewMySQLRepository(db)
 	service := todo.NewService(repo, redis,conn)
 	userRepo := user.NewMySQLRepository(db)
 	userService := user.NewService(userRepo)
 
-	r := newRouter(service, userService, jwtService, redis)
+	r := newRouter(service, userService, jwtService, redis,llmService)
 	go func() {
 		if err := http.ListenAndServe("127.0.0.1:6060", nil); err != nil {
 			slog.Error("pprof listen failed", "error", err)
@@ -72,10 +74,36 @@ func main() {
 	}
 }
 
-func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT, redis *redis.Client) *gin.Engine {
+func newRouter(service *todo.Service, userService *user.Service, jwtService *auth.JWT, redis *redis.Client,llmService *llm.Service) *gin.Engine {
 	r := gin.Default()
 	r.Use(trace.Middleware())
 	// ... (路由定义)
+	r.POST("/chat", auth.AuthMiddleware(jwtService),func(c *gin.Context) {
+		var req llm.ChatRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{
+				"code":    400,
+				"message": "请求参数错误",
+				"data":    nil,
+			})
+			return
+		}
+		response, err := llmService.Chat(c.Request.Context(), req.Message)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"code":    500,
+				"message": "服务内部错误",
+				"data":    nil,
+			})
+			return
+		}
+		
+		c.JSON(200, gin.H{
+			"code":    0,
+			"message": "ok",
+			"data":    response,
+		})
+	})
 	r.GET("/users/me", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
 		userID, ok := c.Get(auth.ContextUserIDKey)
 		if !ok {

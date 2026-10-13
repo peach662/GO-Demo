@@ -396,9 +396,9 @@ MySQL（服务器 124.221.130.183:33603）
 
 ## 唯一下一步
 
-消费者已按 `event_type` 分支：`handleTodoEvent` 对 `created` / `status_changed` 分别处理（后者打 notify 日志）。本机已验证 PATCH 出现 `notify status_changed`。
+已接入 OpenAI 兼容中转：`config` 读 `OPENAI_*`，`internal/llm`（Client + Service + ChatRequest），`POST /chat`（需登录）。本机验证：无 Token 401、空 body 400、有消息 200 且返回模型内容。
 
-下一步（建议）：开始 DeepSeek / Tool Calling；或先把 `handleTodoEvent` 挪出 `database`、通知日志带上 `status`。
+下一步：Tool Calling——让模型能通过工具查询/操作本系统的 Todo（先做只读 List 更稳）。
 
 ## 跨设备与跨 Agent 续接
 

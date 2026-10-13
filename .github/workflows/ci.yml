@@ -38,6 +38,9 @@ jobs:
       JWT_SECRET: ci-jwt-secret
       REDIS_ADDR: 127.0.0.1:6379
       RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672/
+      OPENAI_API_KEY: ci-openai-key
+      OPENAI_BASE_URL: https://example.invalid/v1
+      OPENAI_MODEL: ci-model
 
     steps:
       - name: Checkout
