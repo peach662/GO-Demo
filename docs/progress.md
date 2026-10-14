@@ -130,6 +130,7 @@
 - [x] 服务器已用 Compose 接管 `awesome-api`（镜像 `awesome-project:api`）。本机/公网 `https://app.persicatao.top/health` → 200。
 - [x] 本机 pprof：`127.0.0.1:6060` + `_ "net/http/pprof"`；`go tool pprof .../profile?seconds=10` 后 `top` 可读（空闲时多为 `runtime.*`）。
 - [x] GitHub Actions：`.github/workflows/ci.yml`（push/PR → MySQL service + migrations + `go test -race`）。
+- [x] 只读 Tool Calling：`list_todos` 说明书在 `internal/llm`；`ChatWithTools` 支持多轮消息和 tools。模型点单后，`llm.Service` 用 JWT 的 `userID` 调 `todo.Service.List`，把 JSON 作为 `role=tool` 再问一次模型。`userID` 不放进工具参数。`POST /chat` 从登录态取 `userID`。
 
 ## 最近验证
 
@@ -385,20 +386,21 @@ awesome-project-mysql   mysql:8.4   Up (healthy)
 ```text
 Gin Handler
     |
-Todo Service / User Service
+Todo Service / User Service / LLM Service
     |
 Todo Repository / User Repository
     |
 MySQL（服务器 124.221.130.183:33603）
 
 另：internal/auth（签发 + 验签 + 中间件；`GET /users/me` 已验证接线）
+LLM Service 调 OpenAI 兼容聊天；list_todos 再调 Todo Service.List（userID 来自 JWT）
 ```
 
 ## 唯一下一步
 
-已接入 OpenAI 兼容中转：`config` 读 `OPENAI_*`，`internal/llm`（Client + Service + ChatRequest），`POST /chat`（需登录）。本机验证：无 Token 401、空 body 400、有消息 200 且返回模型内容。
+只读 Tool Calling 已接上。本机 `go run .` 后验证：无 Token 的 `POST /chat` 为 401；空 JSON 为 400；新用户创建标题 `buy-milk-tool-test` 后，`POST /chat` 返回 200，正文包含该标题和 `PENDING`。`go test .` 通过。
 
-下一步：Tool Calling——让模型能通过工具查询/操作本系统的 Todo（先做只读 List 更稳）。
+下一步：RAG。先定文档从哪来、怎么切、怎么按当前用户检索，再接到聊天里。创建和改状态先不做工具。
 
 ## 跨设备与跨 Agent 续接
 

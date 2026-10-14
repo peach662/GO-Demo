@@ -15,7 +15,7 @@ import (
 
 // 测试不真正调用中转；占位 client 仅满足 newRouter 签名。
 func newTestLLMService() *llm.Service {
-	return llm.NewService(llm.NewClient("test", "https://example.invalid", "test-model"))
+	return llm.NewService(llm.NewClient("test", "https://example.invalid", "test-model"), nil)
 }
 
 type fakeRepository struct {

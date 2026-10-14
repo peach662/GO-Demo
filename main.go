@@ -57,9 +57,10 @@ func main() {
 	defer func() { _ = db.Close() }()
 	jwtService := auth.NewJWT(cfg.JWTSecret)
 	llmClient := llm.NewClient(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.OpenAIModel)
-	llmService := llm.NewService(llmClient)
+
 	repo := todo.NewMySQLRepository(db)
 	service := todo.NewService(repo, redis,conn)
+	llmService := llm.NewService(llmClient,service)
 	userRepo := user.NewMySQLRepository(db)
 	userService := user.NewService(userRepo)
 
@@ -79,6 +80,24 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 	r.Use(trace.Middleware())
 	// ... (路由定义)
 	r.POST("/chat", auth.AuthMiddleware(jwtService),func(c *gin.Context) {
+		userID, ok := c.Get(auth.ContextUserIDKey)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "未授权",
+				"data":    nil,
+			})
+			return
+		}
+		userIDInt, ok := userID.(int)
+		if !ok {
+			c.JSON(401, gin.H{
+				"code":    401,
+				"message": "用户ID必须是数字",
+				"data":    nil,
+			})
+			return
+		}
 		var req llm.ChatRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(400, gin.H{
@@ -88,7 +107,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
-		response, err := llmService.Chat(c.Request.Context(), req.Message)
+		response, err := llmService.Chat(c.Request.Context(), userIDInt, req.Message)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"code":    500,
@@ -97,12 +116,7 @@ func newRouter(service *todo.Service, userService *user.Service, jwtService *aut
 			})
 			return
 		}
-		
-		c.JSON(200, gin.H{
-			"code":    0,
-			"message": "ok",
-			"data":    response,
-		})
+		c.JSON(200, gin.H{"code": 0, "message": "ok", "data": response})
 	})
 	r.GET("/users/me", auth.AuthMiddleware(jwtService), func(c *gin.Context) {
 		userID, ok := c.Get(auth.ContextUserIDKey)

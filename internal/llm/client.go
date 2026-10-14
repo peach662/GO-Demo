@@ -31,15 +31,24 @@ func NewClient(apiKey, baseURL, model string) *Client {
 	}
 }
 
-// chatRequest / chatResponse 只建模我们用到的字段，忽略其余 JSON。
+// chatRequest 是发往 /v1/chat/completions 的请求体。
 type chatRequest struct {
 	Model    string        `json:"model"`
 	Messages []chatMessage `json:"messages"`
+	// Tools 可选：有 Tool Calling 时带上；普通 Chat 不填（omitempty 不会出现在 JSON 里）。
+	Tools []Tool `json:"tools,omitempty"`
 }
 
+// chatMessage 是 messages 数组里的一条消息。
+// 三种常见形态共用这一个结构体，靠 Role + 可选字段区分：
+//   - user/assistant 普通文本：Role + Content
+//   - assistant 要调工具：Role=assistant + ToolCalls
+//   - 本地把工具结果喂回模型：Role=tool + ToolCallID + Content
 type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
 }
 
 type chatResponse struct {
@@ -48,67 +57,85 @@ type chatResponse struct {
 	} `json:"choices"`
 }
 
-// Chat 发送一条 user 消息，返回 assistant 文本。
-// 这是最小闭环：还不支持多轮历史、tools、流式输出。
+// Chat 发送一条 user 消息，返回 assistant 文本（不含 tools）。
 func (c *Client) Chat(ctx context.Context, userMessage string) (string, error) {
-	if c == nil {
-		return "", fmt.Errorf("llm client is nil")
-	}
 	if userMessage == "" {
 		return "", fmt.Errorf("user message is empty")
 	}
-
-	body, err := json.Marshal(chatRequest{
-		Model: c.model,
-		Messages: []chatMessage{
-			{Role: "user", Content: userMessage},
-		},
-	})
+	msg, err := c.ChatWithTools(ctx, []chatMessage{
+		{Role: "user", Content: userMessage},
+	}, nil)
 	if err != nil {
-		return "", fmt.Errorf("marshal chat request: %w", err)
+		return "", err
+	}
+	if msg.Content == "" {
+		return "", fmt.Errorf("chat api returned empty content")
+	}
+	return msg.Content, nil
+}
+
+// ChatWithTools 发送多轮 messages，并可附带工具定义。
+// 返回的是「助手那一条消息」：可能只有 Content，也可能带 ToolCalls（此时 Content 常为空）。
+func (c *Client) ChatWithTools(ctx context.Context, messages []chatMessage, tools []Tool) (chatMessage, error) {
+	if c == nil {
+		return chatMessage{}, fmt.Errorf("llm client is nil")
+	}
+	if len(messages) == 0 {
+		return chatMessage{}, fmt.Errorf("messages is empty")
 	}
 
+	body, err := json.Marshal(chatRequest{
+		Model:    c.model,
+		Messages: messages,
+		Tools:    tools,
+	})
+	if err != nil {
+		return chatMessage{}, fmt.Errorf("marshal chat request: %w", err)
+	}
+
+	respBody, err := c.postChat(ctx, body)
+	if err != nil {
+		return chatMessage{}, err
+	}
+
+	var parsed chatResponse
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return chatMessage{}, fmt.Errorf("unmarshal chat response: %w", err)
+	}
+	if len(parsed.Choices) == 0 {
+		return chatMessage{}, fmt.Errorf("chat api returned no choices")
+	}
+	return parsed.Choices[0].Message, nil
+}
+
+func (c *Client) postChat(ctx context.Context, body []byte) ([]byte, error) {
 	url := c.chatCompletionsURL()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("do request: %w", err)
+		return nil, fmt.Errorf("do request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
-	// 非 2xx 时把状态码和一小段 body 带上，排错中转/鉴权/模型名时很有用。
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("chat api status %d: %s", resp.StatusCode, truncate(string(respBody), 512))
+		return nil, fmt.Errorf("chat api status %d: %s", resp.StatusCode, truncate(string(respBody), 512))
 	}
-
-	var parsed chatResponse
-	if err := json.Unmarshal(respBody, &parsed); err != nil {
-		return "", fmt.Errorf("unmarshal chat response: %w", err)
-	}
-	if len(parsed.Choices) == 0 {
-		return "", fmt.Errorf("chat api returned no choices")
-	}
-	content := parsed.Choices[0].Message.Content
-	if content == "" {
-		return "", fmt.Errorf("chat api returned empty content")
-	}
-	return content, nil
+	return respBody, nil
 }
 
 // chatCompletionsURL 兼容两种 BaseURL：
 //   - https://host          → https://host/v1/chat/completions
 //   - https://host/v1       → https://host/v1/chat/completions
-// 避免拼成 /v1/v1/...。
 func (c *Client) chatCompletionsURL() string {
 	base := c.baseURL
 	if strings.HasSuffix(base, "/v1") {
